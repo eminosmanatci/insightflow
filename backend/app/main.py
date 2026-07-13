@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, organizations  # organizations import edildi
+from app.api import auth, organizations  
+from app.api import auth, organizations, datasets
 
 app = FastAPI(
     title="InsightFlow Enterprise Analytics Platform",
@@ -18,7 +19,8 @@ app.add_middleware(
 
 # Router kayıtları
 app.include_router(auth.router)
-app.include_router(organizations.router)  # Yeni eklendi
+app.include_router(organizations.router)  
+app.include_router(datasets.router)
 
 @app.get("/")
 def read_root():
