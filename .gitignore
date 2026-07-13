@@ -1,0 +1,25 @@
+# Python sanal ortamları
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+
+# Çevre değişkenleri ve gizli anahtarlar
+.env
+.env.*
+!.env.example
+
+# IDE ve Sistem dosyaları
+.idea/
+.vscode/
+.DS_Store
+
+# Docker hacimleri (Local data)
+postgres_data/
+redis_data/
+
+# Test ve Raporlama
+.pytest_cache/
+htmlcov/
+.coverage
