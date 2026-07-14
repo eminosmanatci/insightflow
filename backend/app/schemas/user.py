@@ -6,11 +6,14 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
-    role: str = "viewer"
+    role: str = "viewer"  # Varsayılan rol
 
 # --- Kayıt Olurken Beklenen Veri Yapısı ---
 class UserCreate(UserBase):
     password: str
+    # role alanı UserBase'den miras alındığı için burada ayrıca belirtmenize gerek yok,
+    # ancak opsiyonel kılmak isterseniz:
+    role: Optional[str] = "viewer"
 
 # --- API'den Dönecek Güvenli Veri Yapısı (Şifresiz) ---
 class UserResponse(UserBase):

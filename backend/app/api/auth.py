@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    """Yeni bir kullanıcı (veya yönetici) hesabı oluşturur."""
+    """Yeni bir kullanıcı hesabı oluşturur."""
 
     # 1. Kullanıcının daha önce kayıt olup olmadığını kontrol et
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -39,7 +39,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         hashed_password=hashed_password,
         full_name=user.full_name,
-        role=user.role,
+        role=user.role,  # Kayıt esnasında rolü kaydediyoruz
         is_active=True,  # Varsayılan olarak aktif ediyoruz
     )
 
@@ -71,6 +71,8 @@ def login(
 
     # 3. Her şey doğruysa JWT Token üret
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    # Rol bilgisini token içerisine gömüyoruz
     access_token = create_access_token(
         data={"sub": user.email, "role": user.role},
         expires_delta=access_token_expires,

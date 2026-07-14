@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, organizations  
+
+# Veritabanı ve modelleri import ediyoruz
+from app.core.database import engine, Base
+from app.models.user import User
+from app.models.dataset import Dataset
+# Eğer başka modelleriniz varsa (Organization, SalesRecord vb.) buraya eklemeyi unutmayın
+# from app.models.organization import Organization 
+
+# Router importları
 from app.api import auth, organizations, datasets, analytics, insights
+
+# Uygulama ayağa kalkarken veritabanında eksik tablo varsa otomatik oluşturur
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="InsightFlow Enterprise Analytics Platform",

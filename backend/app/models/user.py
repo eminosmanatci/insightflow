@@ -9,11 +9,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    full_name = Column(String)
-    role = Column(String, default="viewer")  # Roller: admin, manager, analyst, viewer
+    full_name = Column(String, nullable=True)
+    
+    # Yeni: Kullanıcı Rolü (admin, manager, analyst, viewer)
+    role = Column(String, default="viewer", nullable=False)
+    
     is_active = Column(Boolean, default=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"))
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Kullanıcının bağlı olduğu organizasyon
+    # İlişki tanımlamaları
     organization = relationship("Organization", back_populates="users")
