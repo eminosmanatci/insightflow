@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from './api';
 
 function Login() {
@@ -83,6 +83,13 @@ function Login() {
             {loading ? 'Giriş Yapılıyor...' : 'Sisteme Giriş Yap'}
           </button>
         </form>
+
+        <div className="mt-6 text-center text-sm text-slate-600">
+          Hesabınız yok mu?{' '}
+          <Link to="/register" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
+            Hesap Oluşturun
+          </Link>
+        </div>
         
       </div>
     </div>

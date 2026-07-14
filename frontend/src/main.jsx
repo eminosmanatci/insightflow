@@ -3,9 +3,11 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App.jsx';
 import Login from './Login.jsx';
-import Datasets from './Datasets.jsx'; // Yeni eklendi
+import Register from './Register.jsx'; // Register bileşeni dahil edildi
+import Datasets from './Datasets.jsx';
 import './index.css';
 
+// Giriş yapılmamışsa kullanıcıyı login sayfasına yönlendiren koruma bileşeni
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -18,9 +20,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
+        {/* Herkese açık rotalar */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} /> {/* Yeni rota buraya eklendi */}
         
-        {/* Dashboard Sayfası */}
+        {/* Sadece giriş yapmış kullanıcıların görebileceği korumalı rotalar */}
         <Route 
           path="/" 
           element={
@@ -29,8 +33,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             </ProtectedRoute>
           } 
         />
-        
-        {/* Veri Setleri Sayfası */}
         <Route 
           path="/datasets" 
           element={
@@ -42,4 +44,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
-)
+);

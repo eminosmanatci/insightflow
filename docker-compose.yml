@@ -41,6 +41,17 @@ services:
     volumes:
       - ./backend:/backend
 
+  frontend:
+    build: ./frontend
+    container_name: insightflow_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - web  # Buradaki isim yukarıdaki backend servisinin adı olan 'web' ile eşleşmelidir.
+
 volumes:
   postgres_data:
   redis_data:
