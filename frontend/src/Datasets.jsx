@@ -65,6 +65,22 @@ function Datasets() {
     }
   };
 
+  // SİLME FONKSİYONU
+  const handleDelete = async (datasetId) => {
+    if (!window.confirm("Bu veri setini ve içindeki tüm verileri silmek istediğinize emin misiniz? Dashboard güncellenecektir.")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/datasets/${datasetId}`);
+      // Silme başarılı olunca listeyi güncelle
+      setDatasets(datasets.filter(ds => ds.id !== datasetId));
+      setMessage({ type: 'success', text: 'Veri seti başarıyla silindi.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Veri seti silinirken hata oluştu. Yetkiniz olmayabilir.' });
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
       
@@ -152,16 +168,17 @@ function Datasets() {
                       <th scope="col" className="px-6 py-3">Durum</th>
                       <th scope="col" className="px-6 py-3">Satır Sayısı</th>
                       <th scope="col" className="px-6 py-3">Yüklenme Tarihi</th>
+                      <th scope="col" className="px-6 py-3 text-right">İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan="4" className="px-6 py-4 text-center">Yükleniyor...</td>
+                        <td colSpan="5" className="px-6 py-4 text-center">Yükleniyor...</td>
                       </tr>
                     ) : datasets.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="px-6 py-4 text-center text-slate-500">Henüz veri seti yüklenmedi.</td>
+                        <td colSpan="5" className="px-6 py-4 text-center text-slate-500">Henüz veri seti yüklenmedi.</td>
                       </tr>
                     ) : (
                       datasets.map((ds) => (
@@ -178,6 +195,17 @@ function Datasets() {
                           </td>
                           <td className="px-6 py-4">{ds.row_count}</td>
                           <td className="px-6 py-4">{new Date(ds.created_at).toLocaleString('tr-TR')}</td>
+                          <td className="px-6 py-4 text-right">
+                            <button 
+                              onClick={() => handleDelete(ds.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                              title="Sil"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}

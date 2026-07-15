@@ -33,7 +33,7 @@ def analyze_business_data(
 
     # 3. Sonucu Dashboard'un anlayacağı formatta dön
     return {
-        "organization": current_user.organization.name,
+        "organization": current_user.organization.name if current_user.organization else "Bireysel Çalışma Alanı",
         "data_snapshot": {
             "kpis": kpi_data,
             "regions": region_data_dict

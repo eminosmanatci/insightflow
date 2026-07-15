@@ -1,8 +1,7 @@
 from celery import Celery
 
-# Broker ve Backend olarak Redis container'ımızı gösteriyoruz
 celery_app = Celery(
-    "insightflow_tasks",
+    "insightflow",
     broker="redis://redis:6379/0",
     backend="redis://redis:6379/0"
 )
@@ -15,5 +14,7 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-# Task dosyalarımızı otomatik bulması için tarama yapıyoruz
-celery_app.autodiscover_tasks(["app.tasks"])
+# SİHİRLİ VE ZORUNLU SATIR:
+# Python'u bu dosyayı okumaya mecbur bırakıyoruz. 
+# Böylece içerideki @shared_task kesinlikle tetiklenecek!
+import app.tasks.dataset_tasks

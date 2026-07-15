@@ -1,14 +1,12 @@
 import base64
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.deps import get_current_user, RoleChecker  # RoleChecker'ı import ediyoruz
+from app.api.deps import get_current_user, RoleChecker
 from app.models.user import User
-from app.models.dataset import Dataset
+from app.models.dataset import Dataset, SalesRecord  # SalesRecord importu buraya eklendi
 from app.schemas.dataset import DatasetResponse
-
-# Celery Task'ımızı import ediyoruz
 from app.tasks.dataset_tasks import process_csv_task
 
 router = APIRouter(prefix="/datasets", tags=["Data Pipeline"])
@@ -53,7 +51,33 @@ async def upload_dataset(
     # 3. İçeriği JSON üzerinden güvenle gönderebilmek için Base64 formatına çevir
     contents_b64 = base64.b64encode(contents).decode('utf-8')
     
-    # 4. Celery Task'ını tetikle (.delay() ile asenkron olarak kuyruğa atar)
+    # 4. En temiz haliyle görevi tetikle
     process_csv_task.delay(new_dataset.id, current_user.organization_id, contents_b64)
 
     return new_dataset
+
+@router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dataset(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allow_upload) # Sadece Admin/Analyst silebilir
+):
+    # Veri seti var mı ve kullanıcının kendi şirketine mi ait kontrol et
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, 
+        Dataset.organization_id == current_user.organization_id
+    ).first()
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Veri seti bulunamadı veya yetkiniz yok.")
+
+    # 1. Önce bu dosyaya bağlı tüm satış kayıtlarını sil (Temizlik)
+    db.query(SalesRecord).filter(SalesRecord.dataset_id == dataset_id).delete()
+    
+    # 2. Sonra veri setinin kendisini sil
+    db.delete(dataset)
+    db.commit()
+    
+    # HTTP 204 No Content durum kodlarında gövde (body) döndürülmez, 
+    # bu yüzden FastAPI arka planda bu dönüşü otomatik olarak boşaltacaktır.
+    return None

@@ -1,7 +1,7 @@
 import base64
 import io
 import pandas as pd
-from celery import shared_task
+from celery import shared_task  # celery_app yerine tekrar shared_task kullanıyoruz
 from app.core.database import SessionLocal
 from app.models.dataset import Dataset, SalesRecord
 
