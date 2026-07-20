@@ -1,11 +1,12 @@
 import base64
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.api.deps import get_current_user, RoleChecker
 from app.models.user import User
-from app.models.dataset import Dataset, SalesRecord  # SalesRecord importu buraya eklendi
+from app.models.dataset import Dataset, SalesRecord
 from app.schemas.dataset import DatasetResponse
 from app.tasks.dataset_tasks import process_csv_task
 
@@ -26,7 +27,6 @@ def get_my_datasets(
 async def upload_dataset(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    # Artık kullanıcı bu endpoint'e girmeden önce rol kontrolünden geçecek
     current_user: User = Depends(allow_upload)
 ):
     if not current_user.organization_id:
@@ -35,23 +35,39 @@ async def upload_dataset(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Sadece CSV formatı desteklenmektedir.")
 
-    # 1. Veritabanında dosyayı "processing" durumuyla aç
+    # 1. Dosya içeriğini oku
+    contents = await file.read()
+    
+    # 2. Dosya içeriğinin MD5 imzasını (hash) oluştur
+    file_hash = hashlib.md5(contents).hexdigest()
+
+    # 3. Veritabanında bu şirkete ait, aynı hash'e sahip bir dosya var mı kontrol et
+    existing_dataset = db.query(Dataset).filter(
+        Dataset.organization_id == current_user.organization_id,
+        Dataset.file_hash == file_hash
+    ).first()
+
+    if existing_dataset:
+        raise HTTPException(
+            status_code=400, 
+            detail="Bu veri seti daha önce yüklendi. Lütfen farklı veriler içeren bir dosya seçin."
+        )
+
+    # 4. Veritabanında dosyayı "processing" durumuyla aç (file_hash ile birlikte kaydediyoruz)
     new_dataset = Dataset(
         name=file.filename,
         status="processing",
-        organization_id=current_user.organization_id
+        organization_id=current_user.organization_id,
+        file_hash=file_hash
     )
     db.add(new_dataset)
     db.commit()
     db.refresh(new_dataset)
 
-    # 2. Dosya içeriğini oku
-    contents = await file.read()
-    
-    # 3. İçeriği JSON üzerinden güvenle gönderebilmek için Base64 formatına çevir
+    # 5. İçeriği JSON üzerinden güvenle gönderebilmek için Base64 formatına çevir
     contents_b64 = base64.b64encode(contents).decode('utf-8')
     
-    # 4. En temiz haliyle görevi tetikle
+    # 6. Görevi tetikle
     process_csv_task.delay(new_dataset.id, current_user.organization_id, contents_b64)
 
     return new_dataset
@@ -60,9 +76,8 @@ async def upload_dataset(
 def delete_dataset(
     dataset_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(allow_upload) # Sadece Admin/Analyst silebilir
+    current_user: User = Depends(allow_upload)
 ):
-    # Veri seti var mı ve kullanıcının kendi şirketine mi ait kontrol et
     dataset = db.query(Dataset).filter(
         Dataset.id == dataset_id, 
         Dataset.organization_id == current_user.organization_id
@@ -78,6 +93,4 @@ def delete_dataset(
     db.delete(dataset)
     db.commit()
     
-    # HTTP 204 No Content durum kodlarında gövde (body) döndürülmez, 
-    # bu yüzden FastAPI arka planda bu dönüşü otomatik olarak boşaltacaktır.
     return None

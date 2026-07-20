@@ -75,7 +75,9 @@ function Datasets() {
       // Listeyi anında güncelle (Yeni yüklenen dosya "İşleniyor" olarak tabloya eklenecek ve polling başlayacak)
       fetchDatasets();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Dosya yüklenirken bir hata oluştu.' });
+      // Backend'den gelen özel hata mesajını al, yoksa genel hatayı göster
+      const errorMsg = error.response?.data?.detail || 'Dosya yüklenirken bir hata oluştu.';
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setUploading(false);
       // Dosya inputunu temizle

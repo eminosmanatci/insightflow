@@ -11,6 +11,10 @@ class Dataset(Base):
     status = Column(String, default="uploaded")  # uploaded, processing, completed, failed
     row_count = Column(Integer, default=0)
     organization_id = Column(Integer, ForeignKey("organizations.id"))
+    
+    # --- YENİ EKLENEN SÜTUN ---
+    file_hash = Column(String, index=True, nullable=True) 
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     organization = relationship("Organization")
