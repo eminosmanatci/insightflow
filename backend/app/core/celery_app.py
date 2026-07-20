@@ -1,10 +1,13 @@
 from celery import Celery
 
+from app.core.config import settings
+
+
 celery_app = Celery(
     "insightflow",
-    broker="redis://redis:6379/0",
-    backend="redis://redis:6379/0",
-    include=['app.tasks.dataset_tasks']  # <--- ÇÖZÜM BURADA: Celery'e görev dosyasını tanıtıyoruz
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
+    include=["app.tasks.dataset_tasks"],
 )
 
 celery_app.conf.update(
