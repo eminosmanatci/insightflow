@@ -4,10 +4,8 @@ services:
   db:
     image: postgres:15-alpine
     container_name: insightflow_db
-    environment:
-      POSTGRES_USER: insight_admin
-      POSTGRES_PASSWORD: secret_password123
-      POSTGRES_DB: insightflow_prod
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:
@@ -26,8 +24,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql://insight_admin:secret_password123@db:5432/insightflow_prod
+    env_file:
+      - .env
     depends_on:
       - db
       - redis
@@ -39,8 +37,8 @@ services:
     command: celery -A app.core.celery_app worker --loglevel=info
     volumes:
       - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql://insight_admin:secret_password123@db:5432/insightflow_prod
+    env_file:
+      - .env
     depends_on:
       - db
       - redis

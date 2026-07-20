@@ -3,7 +3,8 @@ from celery import Celery
 celery_app = Celery(
     "insightflow",
     broker="redis://redis:6379/0",
-    backend="redis://redis:6379/0"
+    backend="redis://redis:6379/0",
+    include=['app.tasks.dataset_tasks']  # <--- ÇÖZÜM BURADA: Celery'e görev dosyasını tanıtıyoruz
 )
 
 celery_app.conf.update(
@@ -13,8 +14,3 @@ celery_app.conf.update(
     timezone="Europe/Istanbul",
     enable_utc=True,
 )
-
-# SİHİRLİ VE ZORUNLU SATIR:
-# Python'u bu dosyayı okumaya mecbur bırakıyoruz. 
-# Böylece içerideki @shared_task kesinlikle tetiklenecek!
-import app.tasks.dataset_tasks

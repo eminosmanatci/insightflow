@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+# app/main.py dosyanızın en üst kısımlarına ekleyin:
+from app.core.celery_app import celery_app
 
 # Veritabanı ve modelleri import ediyoruz
 from app.core.database import engine, Base
 from app.models.user import User
 from app.models.dataset import Dataset
-# Eğer başka modelleriniz varsa (Organization, SalesRecord vb.) buraya eklemeyi unutmayın
 # from app.models.organization import Organization 
 
 # Router importları
@@ -22,7 +23,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

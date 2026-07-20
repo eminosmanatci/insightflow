@@ -21,9 +21,31 @@ function Datasets() {
     }
   };
 
+  // 1. İlk Yükleme (Component Mount)
   useEffect(() => {
     fetchDatasets();
   }, []);
+
+  // 2. OTOMATİK YENİLEME (POLLING) MEKANİZMASI
+  useEffect(() => {
+    // Listede durumu 'processing' olan bir dosya var mı kontrol et
+    const isProcessing = datasets.some(ds => ds.status === 'processing');
+    
+    let intervalId;
+    if (isProcessing) {
+      // Eğer işlenen veri varsa her 3 saniyede bir listeyi güncelle
+      intervalId = setInterval(() => {
+        fetchDatasets();
+      }, 3000); 
+    }
+
+    // Temizlik: İşlem bittiğinde veya sayfadan çıkıldığında sayacı durdur
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [datasets]);
 
   // Dosya seçildiğinde state'e kaydet
   const handleFileChange = (e) => {
@@ -47,14 +69,10 @@ function Datasets() {
     formData.append('file', file);
 
     try {
-      await api.post('/datasets/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await api.post('/datasets/upload', formData);
       setMessage({ type: 'success', text: 'Dosya başarıyla yüklendi ve işleniyor.' });
       setFile(null);
-      // Listeyi güncelle
+      // Listeyi anında güncelle (Yeni yüklenen dosya "İşleniyor" olarak tabloya eklenecek ve polling başlayacak)
       fetchDatasets();
     } catch (error) {
       setMessage({ type: 'error', text: 'Dosya yüklenirken bir hata oluştu.' });
