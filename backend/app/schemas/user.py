@@ -1,31 +1,46 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
-# --- Ortak Özellikler ---
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
+
+
 class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
-    role: str = "viewer"  # Varsayılan rol
+    role: str = "viewer"
 
-# --- Kayıt Olurken Beklenen Veri Yapısı ---
-class UserCreate(UserBase):
-    password: str
-    # role alanı UserBase'den miras alındığı için burada ayrıca belirtmenize gerek yok,
-    # ancak opsiyonel kılmak isterseniz:
-    role: Optional[str] = "viewer"
 
-# --- API'den Dönecek Güvenli Veri Yapısı (Şifresiz) ---
+class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    full_name: Optional[str] = None
+    password: str = Field(min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def validate_bcrypt_password_length(cls, password: str) -> str:
+        if len(password.encode("utf-8")) > 72:
+            raise ValueError("Şifre 72 bayttan uzun olamaz.")
+
+        return password
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool
     organization_id: Optional[int] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# --- Login Sonrası Dönecek Token Yapısı ---
+
 class Token(BaseModel):
     access_token: str
     token_type: str
