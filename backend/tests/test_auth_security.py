@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.api.auth import login, register_user
 from app.api.deps import get_current_user
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.core.security import ALGORITHM, create_access_token
 from app.models.user import User
 from app.schemas.user import UserCreate
@@ -132,3 +132,13 @@ def test_login_rejects_inactive_account():
         login(form_data, db)
 
     assert exc_info.value.status_code == 401
+
+
+def test_settings_reject_short_secret():
+    """JWT secret en az 32 karakter olmalı."""
+    with pytest.raises(ValidationError):
+        Settings(
+            DATABASE_URL="sqlite+pysqlite:///:memory:",
+            SECRET_KEY="too-short",
+            GROQ_API_KEY="gsk-dummy-key",
+        )
