@@ -412,3 +412,40 @@ def test_growth_rate_is_null_without_previous_data(
     assert result["previous_period"]["total_revenue"] == 0.0
     assert result["revenue_growth_rate"] is None
     assert result["transaction_growth_rate"] is None
+
+def test_ai_insight_uses_same_date_filter(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        (
+            "/ai/analyze"
+            "?date_from=2026-02-01"
+            "&date_to=2026-02-28"
+        ),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["filters"] == {
+        "date_from": "2026-02-01",
+        "date_to": "2026-02-28",
+    }
+    assert result["data_snapshot"]["kpis"] == {
+        "total_revenue": 300.0,
+        "transaction_count": 1,
+        "average_transaction_value": 300.0,
+    }
+    assert result["data_snapshot"]["regions"] == [
+        {
+            "region": "Marmara",
+            "total_revenue": 300.0,
+        }
+    ]
