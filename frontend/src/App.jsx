@@ -1,195 +1,540 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React, {
+  useEffect,
+  useRef,
+  useState
+} from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
+import {
+  Link,
+  useNavigate
+} from 'react-router-dom';
+
 import api from './api';
 
-function App() {
-  const [kpis, setKpis] = useState({
+
+const EMPTY_KPIS = {
   total_revenue: 0,
   transaction_count: 0,
   average_transaction_value: 0
-});
+};
+
+
+function buildDateParams(filters) {
+  const params = {};
+
+  if (filters.dateFrom) {
+    params.date_from = filters.dateFrom;
+  }
+
+  if (filters.dateTo) {
+    params.date_to = filters.dateTo;
+  }
+
+  return params;
+}
+
+
+function App() {
+  const [kpis, setKpis] = useState(EMPTY_KPIS);
   const [regionData, setRegionData] = useState([]);
-  const [aiInsight, setAiInsight] = useState("");
+  const [aiInsight, setAiInsight] = useState('');
+
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({
+    dateFrom: '',
+    dateTo: ''
+  });
+
   const [loading, setLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
+  const lastAiRequestKey = useRef(null);
   const navigate = useNavigate();
 
-  // 1. KPI ve Grafik Verilerini Çekme
   useEffect(() => {
+    let cancelled = false;
+
     const fetchDashboardData = async () => {
+      setLoading(true);
+
       try {
-        const [kpiRes, regionRes] = await Promise.all([
-          api.get('/analytics/kpis'),
-          api.get('/analytics/regions')
-        ]);
-        
-        setKpis(kpiRes.data);
-        setRegionData(regionRes.data);
+        const params = buildDateParams(
+          appliedFilters
+        );
+
+        const [kpiResponse, regionResponse] =
+          await Promise.all([
+            api.get(
+              '/analytics/kpis',
+              { params }
+            ),
+            api.get(
+              '/analytics/regions',
+              { params }
+            )
+          ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setKpis({
+          total_revenue: Number(
+            kpiResponse.data.total_revenue ?? 0
+        ),
+        transaction_count: Number(
+          kpiResponse.data.transaction_count ?? 0
+        ),
+        average_transaction_value: Number(
+          kpiResponse.data
+            .average_transaction_value ?? 0
+        )
+     });
+        setRegionData(regionResponse.data);
         setError(null);
-      } catch (err) {
-        console.error("Veri çekme hatası:", err);
-        setError("Veriler yüklenemedi. Oturum açtığınızdan emin olun.");
+      } catch (requestError) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          'Dashboard verileri alınamadı:',
+          requestError
+        );
+        setError(
+          requestError.response?.data?.detail
+          || 'Dashboard verileri yüklenemedi.'
+        );
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDashboardData();
-  }, []);
 
-  // 2. AI İçgörülerini Çekme (Grafiklerin yüklenmesini bekletmemek için ayrı bir useEffect)
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedFilters]);
+
   useEffect(() => {
-    const fetchAiInsights = async () => {
+    let cancelled = false;
+
+    const requestKey = JSON.stringify(
+      appliedFilters
+    );
+
+    if (
+      lastAiRequestKey.current === requestKey
+    ) {
+      return undefined;
+    }
+
+    lastAiRequestKey.current = requestKey;
+
+    const fetchAiInsight = async () => {
+      setAiLoading(true);
+
       try {
-        const res = await api.get('/ai/analyze');
-        setAiInsight(res.data.ai_insight);
-      } catch (err) {
-        console.error("AI Hatası:", err);
-        setAiInsight("Şu anda yapay zeka analiz motoruna ulaşılamıyor.");
+        const params = buildDateParams(
+          appliedFilters
+        );
+
+        const response = await api.get(
+          '/ai/analyze',
+          { params }
+        );
+
+        if (!cancelled) {
+          setAiInsight(
+            response.data.ai_insight
+          );
+        }
+      } catch (requestError) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          'AI analizi alınamadı:',
+          requestError
+        );
+        setAiInsight(
+          'Yapay zeka analiz motoruna şu anda ulaşılamıyor.'
+        );
       } finally {
-        setAiLoading(false);
+        if (!cancelled) {
+          setAiLoading(false);
+        }
       }
     };
 
-    fetchAiInsights();
-  }, []);
+    fetchAiInsight();
 
-  // 3. Çıkış Yapma Fonksiyonu
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedFilters]);
+
+  const handleApplyFilters = (event) => {
+    event.preventDefault();
+
+    if (
+      dateFrom
+      && dateTo
+      && dateFrom > dateTo
+    ) {
+      setError(
+        'Başlangıç tarihi bitiş tarihinden sonra olamaz.'
+      );
+      return;
+    }
+
+    setError(null);
+    setAppliedFilters({
+      dateFrom,
+      dateTo
+    });
+  };
+
+  const handleClearFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setError(null);
+    setAppliedFilters({
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
   };
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-900 text-white text-sm py-2 px-3 rounded-md shadow-lg border border-slate-700">
-          <p className="font-semibold">{label}</p>
-          <p className="text-blue-300">
-            {`₺${payload[0].value.toLocaleString('tr-TR')}`}
-          </p>
-        </div>
-      );
+  const CustomTooltip = ({
+    active,
+    payload,
+    label
+  }) => {
+    if (
+      !active
+      || !payload
+      || payload.length === 0
+    ) {
+      return null;
     }
-    return null;
+
+    return (
+      <div className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white shadow-lg">
+        <p className="font-semibold">
+          {label}
+        </p>
+        <p className="text-blue-300">
+          {`₺${Number(payload
+            [0].value ?? 0
+          ).toLocaleString('tr-TR')}`}
+        </p>
+      </div>
+    );
   };
+
+  const hasActiveDateFilter = (
+    appliedFilters.dateFrom
+    || appliedFilters.dateTo
+  );
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
-      
-      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
+      <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white md:flex">
+        <div className="flex h-16 items-center border-b border-slate-200 px-6">
           <div className="text-xl font-extrabold tracking-tight text-blue-700">
-            Insight<span className="text-slate-800">Flow</span>
+            Insight
+            <span className="text-slate-800">
+              Flow
+            </span>
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1.5">
-          <Link to="/" className="flex items-center gap-3 px-3 py-2 bg-blue-50 text-blue-700 rounded-md font-medium transition-colors">
+
+        <nav className="flex-1 space-y-1.5 p-4">
+          <Link
+            to="/"
+            className="flex items-center gap-3 rounded-md bg-blue-50 px-3 py-2 font-medium text-blue-700"
+          >
             Dashboard
           </Link>
-          <Link to="/datasets" className="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md font-medium transition-colors">
+
+          <Link
+            to="/datasets"
+            className="flex items-center gap-3 rounded-md px-3 py-2 font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
             Veri Setleri
           </Link>
         </nav>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-          <h1 className="text-lg font-semibold text-slate-800">Genel Bakış</h1>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
+          <h1 className="text-lg font-semibold text-slate-800">
+            Genel Bakış
+          </h1>
+
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-slate-500 hidden md:block">Yönetici Paneli</span>
-            <button 
+            <span className="hidden text-sm font-medium text-slate-500 md:block">
+              Yönetici Paneli
+            </span>
+
+            <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-md hover:bg-red-50 transition-colors"
-              title="Çıkış Yap"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
             >
               Çıkış
             </button>
-            <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm shadow-sm cursor-pointer">
+
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-bold text-white shadow-sm">
               E
             </div>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-8">
-          
+          <form
+            onSubmit={handleApplyFilters}
+            className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-800">
+                  Tarih Filtresi
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Seçilen dönem tüm KPI, grafik ve AI analizine uygulanır.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="mb-1 block">
+                    Başlangıç
+                  </span>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(event) => {
+                      setDateFrom(
+                        event.target.value
+                      );
+                    }}
+                    className="rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
+
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="mb-1 block">
+                    Bitiş
+                  </span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(event) => {
+                      setDateTo(
+                        event.target.value
+                      );
+                    }}
+                    className="rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  Uygula
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  disabled={
+                    loading
+                    || !hasActiveDateFilter
+                  }
+                  className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Temizle
+                </button>
+              </div>
+            </div>
+
+            {hasActiveDateFilter && (
+              <div className="mt-4 text-xs font-medium text-blue-700">
+                Aktif dönem:{' '}
+                {appliedFilters.dateFrom || 'Başlangıç yok'}
+                {' → '}
+                {appliedFilters.dateTo || 'Bitiş yok'}
+              </div>
+            )}
+          </form>
+
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md border border-red-200 text-sm">
+            <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
-              <h3 className="text-sm font-medium text-slate-500">Toplam Gelir</h3>
-              <p className="text-3xl font-bold text-slate-800 mt-3">
-                {loading ? "..." : `₺${kpis.total_revenue.toLocaleString('tr-TR')}`}
+          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-medium text-slate-500">
+                Toplam Gelir
+              </h3>
+              <p className="mt-3 text-3xl font-bold text-slate-800">
+                {loading
+                  ? '...'
+                  : `₺${Number(
+                    kpis.total_revenue ?? 0
+                  ).toLocaleString('tr-TR')}`}
               </p>
             </div>
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
-              <h3 className="text-sm font-medium text-slate-500">Toplam İşlem</h3>
-              <p className="text-3xl font-bold text-slate-800 mt-3">
-                {loading ? "..." : kpis.transaction_count}
+
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-medium text-slate-500">
+                Toplam İşlem
+              </h3>
+              <p className="mt-3 text-3xl font-bold text-slate-800">
+                {loading
+                  ? '...'
+                  : Number(
+                    kpis.transaction_count ?? 0
+                  ).toLocaleString('tr-TR')}
               </p>
             </div>
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
-              <h3 className="text-sm font-medium text-slate-500">Ort. İşlem Tutarı</h3>
-              <p className="text-3xl font-bold text-slate-800 mt-3">
-                {loading ? "..." : `₺${kpis.average_transaction_value.toLocaleString('tr-TR')}`}
+
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-medium text-slate-500">
+                Ort. İşlem Tutarı
+              </h3>
+              <p className="mt-3 text-3xl font-bold text-slate-800">
+                {loading
+                  ? '...'
+                  : `₺${Number(
+                    kpis.average_transaction_value ?? 0
+                  ).toLocaleString('tr-TR')}`}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-slate-200 shadow-sm h-[420px] flex flex-col">
-              <h3 className="text-base font-semibold text-slate-800 mb-6">Bölgesel Satış Dağılımı</h3>
-              <div className="flex-1 w-full h-full">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="flex h-[420px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+              <h3 className="mb-6 font-semibold text-slate-800">
+                Bölgesel Satış Dağılımı
+              </h3>
+
+              <div className="h-full w-full flex-1">
                 {loading ? (
-                  <div className="flex h-full items-center justify-center text-slate-400 text-sm">Yükleniyor...</div>
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Yükleniyor...
+                  </div>
+                ) : regionData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Seçilen dönemde veri bulunamadı.
+                  </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={regionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(value) => `₺${value / 1000}k`} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                      <Bar dataKey="total_revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={48} />
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                  >
+                    <BarChart
+                      data={regionData}
+                      margin={{
+                        top: 0,
+                        right: 0,
+                        left: -20,
+                        bottom: 0
+                      }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
+                      <XAxis
+                        dataKey="region"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#64748b',
+                          fontSize: 13
+                        }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#94a3b8',
+                          fontSize: 12
+                        }}
+                        tickFormatter={(value) =>
+                          `₺${value / 1000}k`
+                        }
+                      />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{
+                          fill: '#f8fafc'
+                        }}
+                      />
+                      <Bar
+                        dataKey="total_revenue"
+                        fill="#3b82f6"
+                        radius={[4, 4, 0, 0]}
+                        barSize={48}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm h-[420px] flex flex-col relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-              <h3 className="text-base font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                ✨ Llama-3.1 İçgörüleri
+            <div className="relative flex h-[420px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-600" />
+
+              <h3 className="mb-4 font-semibold text-slate-800">
+                ✨ AI İçgörüleri
               </h3>
-              
-              {/* Llama'dan dönen metni markdown formatı bozulmadan gösteriyoruz (whitespace-pre-wrap) */}
-              <div className="flex-1 text-sm text-slate-700 leading-relaxed bg-slate-50 p-5 rounded-md border border-slate-100 overflow-y-auto whitespace-pre-wrap custom-scrollbar">
+
+              <div className="custom-scrollbar flex-1 overflow-y-auto whitespace-pre-wrap rounded-md border border-slate-100 bg-slate-50 p-5 text-sm leading-relaxed text-slate-700">
                 {aiLoading ? (
-                  <div className="flex flex-col gap-3 animate-pulse">
-                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-slate-200 rounded w-full"></div>
-                    <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                  <div className="flex animate-pulse flex-col gap-3">
+                    <div className="h-4 w-3/4 rounded bg-slate-200" />
+                    <div className="h-4 w-full rounded bg-slate-200" />
+                    <div className="h-4 w-5/6 rounded bg-slate-200" />
                   </div>
                 ) : (
                   aiInsight
                 )}
               </div>
             </div>
-
           </div>
         </main>
       </div>
     </div>
   );
 }
+
 
 export default App;
