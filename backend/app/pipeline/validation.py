@@ -26,8 +26,16 @@ TEXT_COLUMNS = (
 class CSVValidationError(ValueError):
     """CSV veri sözleşmesine uymayan dosyalar için hata."""
 
-    def __init__(self, errors: list[str]):
+    def __init__(
+        self,
+        errors: list[str],
+        total_rows: int = 0,
+        invalid_rows: int = 0,
+    ):
         self.errors = errors
+        self.total_rows = total_rows
+        self.invalid_rows = invalid_rows
+
         super().__init__("; ".join(errors))
 
 
@@ -128,6 +136,9 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
             ["CSV dosyasında en az bir veri satırı bulunmalıdır."]
         )
 
+    total_rows = len(dataframe)
+    invalid_row_indices: set[int] = set()
+
     errors: list[str] = []
 
     for column in TEXT_COLUMNS:
@@ -140,6 +151,9 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
         )
 
         if empty_mask.any():
+            invalid_row_indices.update(
+                dataframe.index[empty_mask].tolist()
+            )
             row_numbers = (
                 dataframe.index[empty_mask] + 2
             ).tolist()
@@ -164,6 +178,9 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
     invalid_date_mask = parsed_dates.isna()
 
     if invalid_date_mask.any():
+        invalid_row_indices.update(
+            dataframe.index[invalid_date_mask].tolist()
+        )
         row_numbers = (
             dataframe.index[invalid_date_mask] + 2
         ).tolist()
@@ -187,6 +204,9 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
     )
 
     if invalid_quantity_mask.any():
+        invalid_row_indices.update(
+            dataframe.index[invalid_quantity_mask].tolist()
+        )
         row_numbers = (
             dataframe.index[invalid_quantity_mask] + 2
         ).tolist()
@@ -210,6 +230,11 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
         )
 
         if invalid_numeric_mask.any():
+            invalid_row_indices.update(
+                dataframe.index[
+                    invalid_numeric_mask
+                ].tolist()
+            )
             row_numbers = (
                 dataframe.index[invalid_numeric_mask] + 2
             ).tolist()
@@ -227,6 +252,9 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
     )
 
     if duplicate_mask.any():
+        invalid_row_indices.update(
+            dataframe.index[duplicate_mask].tolist()
+        )
         row_numbers = (
             dataframe.index[duplicate_mask] + 2
         ).tolist()
@@ -236,7 +264,11 @@ def validate_sales_csv(file_contents: bytes) -> pd.DataFrame:
         )
 
     if errors:
-        raise CSVValidationError(errors)
+        raise CSVValidationError(
+            errors=errors,
+            total_rows=total_rows,
+            invalid_rows=len(invalid_row_indices),
+        )
     
     dataframe["quantity"] = (
         dataframe["quantity"].astype("Int64")

@@ -62,3 +62,13 @@ def client():
     """İzole veritabanını kullanan FastAPI test istemcisi."""
     with TestClient(app) as test_client:
         yield test_client
+
+@pytest.fixture
+def db_session():
+    """Test veritabanına doğrudan erişim sağlar."""
+    db = TestingSessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
