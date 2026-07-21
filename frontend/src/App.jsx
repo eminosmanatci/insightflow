@@ -1,17 +1,20 @@
 import React, {
   useEffect,
-  useRef,
   useState
 } from 'react';
+
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis
 } from 'recharts';
+
 import {
   Link,
   useNavigate
@@ -45,10 +48,13 @@ function buildDateParams(filters) {
 function App() {
   const [kpis, setKpis] = useState(EMPTY_KPIS);
   const [regionData, setRegionData] = useState([]);
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
   const [aiInsight, setAiInsight] = useState('');
 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
   const [appliedFilters, setAppliedFilters] = useState({
     dateFrom: '',
     dateTo: ''
@@ -58,11 +64,11 @@ function App() {
   const [aiLoading, setAiLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const lastAiRequestKey = useRef(null);
   const navigate = useNavigate();
 
+
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -72,38 +78,80 @@ function App() {
           appliedFilters
         );
 
-        const [kpiResponse, regionResponse] =
-          await Promise.all([
-            api.get(
-              '/analytics/kpis',
-              { params }
-            ),
-            api.get(
-              '/analytics/regions',
-              { params }
-            )
-          ]);
-
-        if (cancelled) {
-          return;
-        }
+        const [
+          kpiResponse,
+          regionResponse,
+          monthlyResponse,
+          categoryResponse
+        ] = await Promise.all([
+          api.get(
+            '/analytics/kpis',
+            {
+              params,
+              signal: controller.signal
+            }
+          ),
+          api.get(
+            '/analytics/regions',
+            {
+              params,
+              signal: controller.signal
+            }
+          ),
+          api.get(
+            '/analytics/monthly',
+            {
+              params,
+              signal: controller.signal
+            }
+          ),
+          api.get(
+            '/analytics/categories',
+            {
+              params,
+              signal: controller.signal
+            }
+          )
+        ]);
 
         setKpis({
           total_revenue: Number(
-            kpiResponse.data.total_revenue ?? 0
-        ),
-        transaction_count: Number(
-          kpiResponse.data.transaction_count ?? 0
-        ),
-        average_transaction_value: Number(
-          kpiResponse.data
-            .average_transaction_value ?? 0
-        )
-     });
-        setRegionData(regionResponse.data);
+            kpiResponse.data?.total_revenue ?? 0
+          ),
+          transaction_count: Number(
+            kpiResponse.data?.transaction_count ?? 0
+          ),
+          average_transaction_value: Number(
+            kpiResponse.data
+              ?.average_transaction_value ?? 0
+          )
+        });
+
+        setRegionData(
+          Array.isArray(regionResponse.data)
+            ? regionResponse.data
+            : []
+        );
+
+        setMonthlyData(
+          Array.isArray(monthlyResponse.data)
+            ? monthlyResponse.data
+            : []
+        );
+
+        setCategoryData(
+          Array.isArray(categoryResponse.data)
+            ? categoryResponse.data
+            : []
+        );
+
         setError(null);
       } catch (requestError) {
-        if (cancelled) {
+        if (
+          requestError.code === 'ERR_CANCELED'
+          || requestError.name === 'CanceledError'
+          || controller.signal.aborted
+        ) {
           return;
         }
 
@@ -111,12 +159,18 @@ function App() {
           'Dashboard verileri alınamadı:',
           requestError
         );
+
         setError(
           requestError.response?.data?.detail
           || 'Dashboard verileri yüklenemedi.'
         );
+
+        setKpis(EMPTY_KPIS);
+        setRegionData([]);
+        setMonthlyData([]);
+        setCategoryData([]);
       } finally {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -125,68 +179,57 @@ function App() {
     fetchDashboardData();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [appliedFilters]);
+
 
   useEffect(() => {
-    let cancelled = false;
+  let isActive = true;
 
-    const requestKey = JSON.stringify(
-      appliedFilters
-    );
+  const fetchAiInsight = async () => {
+    setAiLoading(true);
 
-    if (
-      lastAiRequestKey.current === requestKey
-    ) {
-      return undefined;
-    }
+    try {
+      const params = buildDateParams(appliedFilters);
 
-    lastAiRequestKey.current = requestKey;
+      const response = await api.get('/ai/analyze', {
+        params
+      });
 
-    const fetchAiInsight = async () => {
-      setAiLoading(true);
-
-      try {
-        const params = buildDateParams(
-          appliedFilters
-        );
-
-        const response = await api.get(
-          '/ai/analyze',
-          { params }
-        );
-
-        if (!cancelled) {
-          setAiInsight(
-            response.data.ai_insight
-          );
-        }
-      } catch (requestError) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(
-          'AI analizi alınamadı:',
-          requestError
-        );
+      if (isActive) {
         setAiInsight(
-          'Yapay zeka analiz motoruna şu anda ulaşılamıyor.'
+          response.data?.ai_insight ||
+            'Bu dönem için AI içgörüsü bulunamadı.'
         );
-      } finally {
-        if (!cancelled) {
-          setAiLoading(false);
-        }
       }
-    };
+    } catch (requestError) {
+      if (!isActive) {
+        return;
+      }
 
-    fetchAiInsight();
+      console.error(
+        'AI analizi alınamadı:',
+        requestError
+      );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [appliedFilters]);
+      setAiInsight(
+        'Yapay zeka analiz motoruna şu anda ulaşılamıyor.'
+      );
+    } finally {
+      if (isActive) {
+        setAiLoading(false);
+      }
+    }
+  };
+
+  fetchAiInsight();
+
+  return () => {
+    isActive = false;
+  };
+}, [appliedFilters]);
+
 
   const handleApplyFilters = (event) => {
     event.preventDefault();
@@ -199,30 +242,68 @@ function App() {
       setError(
         'Başlangıç tarihi bitiş tarihinden sonra olamaz.'
       );
+
       return;
     }
 
     setError(null);
+
     setAppliedFilters({
       dateFrom,
       dateTo
     });
   };
 
+
   const handleClearFilters = () => {
     setDateFrom('');
     setDateTo('');
     setError(null);
+
     setAppliedFilters({
       dateFrom: '',
       dateTo: ''
     });
   };
 
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
   };
+
+
+  const formatCurrency = (value) => {
+    return `₺${Number(
+      value ?? 0
+    ).toLocaleString('tr-TR')}`;
+  };
+
+
+  const formatCompactCurrency = (value) => {
+    const numericValue = Number(value ?? 0);
+
+    if (Math.abs(numericValue) >= 1000000) {
+      return `₺${(
+        numericValue / 1000000
+      ).toLocaleString('tr-TR', {
+        maximumFractionDigits: 1
+      })}M`;
+    }
+
+    if (Math.abs(numericValue) >= 1000) {
+      return `₺${(
+        numericValue / 1000
+      ).toLocaleString('tr-TR', {
+        maximumFractionDigits: 1
+      })}K`;
+    }
+
+    return `₺${numericValue.toLocaleString(
+      'tr-TR'
+    )}`;
+  };
+
 
   const CustomTooltip = ({
     active,
@@ -237,24 +318,36 @@ function App() {
       return null;
     }
 
+    const tooltipLabel =
+      label
+      ?? payload[0]?.payload?.month
+      ?? payload[0]?.payload?.region
+      ?? payload[0]?.payload?.category
+      ?? '';
+
     return (
       <div className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white shadow-lg">
-        <p className="font-semibold">
-          {label}
-        </p>
+        {tooltipLabel && (
+          <p className="font-semibold">
+            {tooltipLabel}
+          </p>
+        )}
+
         <p className="text-blue-300">
-          {`₺${Number(payload
-            [0].value ?? 0
-          ).toLocaleString('tr-TR')}`}
+          {formatCurrency(
+            payload[0]?.value
+          )}
         </p>
       </div>
     );
   };
 
-  const hasActiveDateFilter = (
+
+  const hasActiveDateFilter = Boolean(
     appliedFilters.dateFrom
     || appliedFilters.dateTo
   );
+
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
@@ -285,8 +378,8 @@ function App() {
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
+      <div className="min-w-0 min-h-0 flex flex-1 flex-col overflow-hidden">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
           <h1 className="text-lg font-semibold text-slate-800">
             Genel Bakış
           </h1>
@@ -297,6 +390,7 @@ function App() {
             </span>
 
             <button
+              type="button"
               onClick={handleLogout}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
             >
@@ -309,7 +403,8 @@ function App() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-8">
+          {/* Tarih filtresi */}
           <form
             onSubmit={handleApplyFilters}
             className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
@@ -319,6 +414,7 @@ function App() {
                 <h2 className="font-semibold text-slate-800">
                   Tarih Filtresi
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Seçilen dönem tüm KPI, grafik ve AI analizine uygulanır.
                 </p>
@@ -329,6 +425,7 @@ function App() {
                   <span className="mb-1 block">
                     Başlangıç
                   </span>
+
                   <input
                     type="date"
                     value={dateFrom}
@@ -338,7 +435,7 @@ function App() {
                         event.target.value
                       );
                     }}
-                    className="rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </label>
 
@@ -346,6 +443,7 @@ function App() {
                   <span className="mb-1 block">
                     Bitiş
                   </span>
+
                   <input
                     type="date"
                     value={dateTo}
@@ -355,7 +453,7 @@ function App() {
                         event.target.value
                       );
                     }}
-                    className="rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </label>
 
@@ -384,9 +482,13 @@ function App() {
             {hasActiveDateFilter && (
               <div className="mt-4 text-xs font-medium text-blue-700">
                 Aktif dönem:{' '}
-                {appliedFilters.dateFrom || 'Başlangıç yok'}
+                {appliedFilters.dateFrom
+                  || 'Başlangıç yok'}
+
                 {' → '}
-                {appliedFilters.dateTo || 'Bitiş yok'}
+
+                {appliedFilters.dateTo
+                  || 'Bitiş yok'}
               </div>
             )}
           </form>
@@ -397,17 +499,19 @@ function App() {
             </div>
           )}
 
+          {/* KPI kartları */}
           <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-medium text-slate-500">
                 Toplam Gelir
               </h3>
+
               <p className="mt-3 text-3xl font-bold text-slate-800">
                 {loading
                   ? '...'
-                  : `₺${Number(
-                    kpis.total_revenue ?? 0
-                  ).toLocaleString('tr-TR')}`}
+                  : formatCurrency(
+                    kpis.total_revenue
+                  )}
               </p>
             </div>
 
@@ -415,6 +519,7 @@ function App() {
               <h3 className="text-sm font-medium text-slate-500">
                 Toplam İşlem
               </h3>
+
               <p className="mt-3 text-3xl font-bold text-slate-800">
                 {loading
                   ? '...'
@@ -428,23 +533,25 @@ function App() {
               <h3 className="text-sm font-medium text-slate-500">
                 Ort. İşlem Tutarı
               </h3>
+
               <p className="mt-3 text-3xl font-bold text-slate-800">
                 {loading
                   ? '...'
-                  : `₺${Number(
-                    kpis.average_transaction_value ?? 0
-                  ).toLocaleString('tr-TR')}`}
+                  : formatCurrency(
+                    kpis.average_transaction_value
+                  )}
               </p>
             </div>
           </div>
 
+          {/* Bölge + AI grid */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="flex h-[420px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
               <h3 className="mb-6 font-semibold text-slate-800">
                 Bölgesel Satış Dağılımı
               </h3>
 
-              <div className="h-full w-full flex-1">
+              <div className="min-h-0 flex-1">
                 {loading ? (
                   <div className="flex h-full items-center justify-center text-sm text-slate-400">
                     Yükleniyor...
@@ -472,6 +579,7 @@ function App() {
                         vertical={false}
                         stroke="#f1f5f9"
                       />
+
                       <XAxis
                         dataKey="region"
                         axisLine={false}
@@ -481,6 +589,7 @@ function App() {
                           fontSize: 13
                         }}
                       />
+
                       <YAxis
                         axisLine={false}
                         tickLine={false}
@@ -488,16 +597,18 @@ function App() {
                           fill: '#94a3b8',
                           fontSize: 12
                         }}
-                        tickFormatter={(value) =>
-                          `₺${value / 1000}k`
+                        tickFormatter={
+                          formatCompactCurrency
                         }
                       />
+
                       <Tooltip
                         content={<CustomTooltip />}
                         cursor={{
                           fill: '#f8fafc'
                         }}
                       />
+
                       <Bar
                         dataKey="total_revenue"
                         fill="#3b82f6"
@@ -526,6 +637,181 @@ function App() {
                   </div>
                 ) : (
                   aiInsight
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Aylık + kategori grid */}
+          {/* Bu bölüm main elementi kapanmadan önce yer alır. */}
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6">
+                <h3 className="font-semibold text-slate-800">
+                  Aylık Gelir Trendi
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Gelirin aylar içindeki değişimi
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Yükleniyor...
+                  </div>
+                ) : monthlyData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Seçilen dönemde aylık veri bulunamadı.
+                  </div>
+                ) : (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                  >
+                    <LineChart
+                      data={monthlyData}
+                      margin={{
+                        top: 10,
+                        right: 20,
+                        left: -10,
+                        bottom: 0
+                      }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
+
+                      <XAxis
+                        dataKey="month"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#64748b',
+                          fontSize: 12
+                        }}
+                      />
+
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#94a3b8',
+                          fontSize: 12
+                        }}
+                        tickFormatter={
+                          formatCompactCurrency
+                        }
+                      />
+
+                      <Tooltip
+                        content={<CustomTooltip />}
+                      />
+
+                      <Line
+                        type="monotone"
+                        dataKey="total_revenue"
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        dot={{
+                          fill: '#2563eb',
+                          strokeWidth: 0,
+                          r: 4
+                        }}
+                        activeDot={{
+                          r: 6
+                        }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6">
+                <h3 className="font-semibold text-slate-800">
+                  Kategori Performansı
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Kategorilerin toplam gelire katkısı
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Yükleniyor...
+                  </div>
+                ) : categoryData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                    Seçilen dönemde kategori verisi bulunamadı.
+                  </div>
+                ) : (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                  >
+                    <BarChart
+                      data={categoryData}
+                      layout="vertical"
+                      margin={{
+                        top: 0,
+                        right: 20,
+                        left: 20,
+                        bottom: 0
+                      }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        horizontal={false}
+                        stroke="#f1f5f9"
+                      />
+
+                      <XAxis
+                        type="number"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#94a3b8',
+                          fontSize: 12
+                        }}
+                        tickFormatter={
+                          formatCompactCurrency
+                        }
+                      />
+
+                      <YAxis
+                        type="category"
+                        dataKey="category"
+                        width={100}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fill: '#64748b',
+                          fontSize: 12
+                        }}
+                      />
+
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{
+                          fill: '#f8fafc'
+                        }}
+                      />
+
+                      <Bar
+                        dataKey="total_revenue"
+                        fill="#6366f1"
+                        radius={[0, 4, 4, 0]}
+                        barSize={26}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 )}
               </div>
             </div>
