@@ -5,10 +5,10 @@ import api from './api';
 
 function App() {
   const [kpis, setKpis] = useState({
-    total_revenue: 0,
-    total_sales_count: 0,
-    average_order_value: 0
-  });
+  total_revenue: 0,
+  transaction_count: 0,
+  average_transaction_value: 0
+});
   const [regionData, setRegionData] = useState([]);
   const [aiInsight, setAiInsight] = useState("");
   const [loading, setLoading] = useState(true);
@@ -131,15 +131,15 @@ function App() {
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
-              <h3 className="text-sm font-medium text-slate-500">Toplam Sipariş</h3>
+              <h3 className="text-sm font-medium text-slate-500">Toplam İşlem</h3>
               <p className="text-3xl font-bold text-slate-800 mt-3">
-                {loading ? "..." : kpis.total_sales_count}
+                {loading ? "..." : kpis.transaction_count}
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
-              <h3 className="text-sm font-medium text-slate-500">Ort. Sepet Tutarı</h3>
+              <h3 className="text-sm font-medium text-slate-500">Ort. İşlem Tutarı</h3>
               <p className="text-3xl font-bold text-slate-800 mt-3">
-                {loading ? "..." : `₺${kpis.average_order_value.toLocaleString('tr-TR')}`}
+                {loading ? "..." : `₺${kpis.average_transaction_value.toLocaleString('tr-TR')}`}
               </p>
             </div>
           </div>

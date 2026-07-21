@@ -19,8 +19,8 @@ def generate_business_insight(kpi_data: dict, region_data: list) -> str:
 
     [Temel Göstergeler]
     Toplam Gelir: {kpi_data.get('total_revenue')} TL
-    Toplam Sipariş: {kpi_data.get('total_sales_count')}
-    Ortalama Sepet Tutarı: {kpi_data.get('average_order_value')} TL
+    Toplam İşlem: {kpi_data.get('transaction_count')}
+    Ortalama İşlem Tutarı: {kpi_data.get('average_transaction_value')} TL
 
     [Bölgesel Satışlar]
     {region_data}
