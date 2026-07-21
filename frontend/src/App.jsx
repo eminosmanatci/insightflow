@@ -1,7 +1,4 @@
-import React, {
-  useEffect,
-  useState
-} from 'react';
+import React, { useEffect, useState } from "react";
 
 import {
   Bar,
@@ -12,23 +9,18 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
-} from 'recharts';
+  YAxis,
+} from "recharts";
 
-import {
-  Link,
-  useNavigate
-} from 'react-router-dom';
+import { Link, useNavigate } from "react-router-dom";
 
-import api from './api';
-
+import api from "./api";
 
 const EMPTY_KPIS = {
   total_revenue: 0,
   transaction_count: 0,
-  average_transaction_value: 0
+  average_transaction_value: 0,
 };
-
 
 function buildDateParams(filters) {
   const params = {};
@@ -44,7 +36,6 @@ function buildDateParams(filters) {
   return params;
 }
 
-
 function App() {
   const [kpis, setKpis] = useState(EMPTY_KPIS);
   const [regionData, setRegionData] = useState([]);
@@ -52,14 +43,15 @@ function App() {
   const [categoryData, setCategoryData] = useState([]);
   const [productData, setProductData] = useState([]);
   const [customerData, setCustomerData] = useState([]);
-  const [aiInsight, setAiInsight] = useState('');
+  const [aiInsight, setAiInsight] = useState("");
+  const [growthData, setGrowthData] = useState(null);
 
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [appliedFilters, setAppliedFilters] = useState({
-    dateFrom: '',
-    dateTo: ''
+    dateFrom: "",
+    dateTo: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -68,7 +60,6 @@ function App() {
 
   const navigate = useNavigate();
 
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -76,9 +67,19 @@ function App() {
       setLoading(true);
 
       try {
-        const params = buildDateParams(
-          appliedFilters
-        );
+        const params = buildDateParams(appliedFilters);
+
+        const hasCompleteDateRange =
+          Boolean(appliedFilters.dateFrom) && Boolean(appliedFilters.dateTo);
+
+        const growthRequest = hasCompleteDateRange
+          ? api.get("/analytics/growth", {
+              params,
+              signal: controller.signal,
+            })
+          : Promise.resolve({
+              data: null,
+            });
 
         const [
           kpiResponse,
@@ -86,119 +87,87 @@ function App() {
           monthlyResponse,
           categoryResponse,
           productResponse,
-          customerResponse
+          customerResponse,
+          growthResponse,
         ] = await Promise.all([
-          api.get(
-            '/analytics/kpis',
-            {
-              params,
-              signal: controller.signal
-            }
-          ),
-          api.get(
-            '/analytics/regions',
-            {
-              params,
-              signal: controller.signal
-            }
-          ),
-          api.get(
-            '/analytics/monthly',
-            {
-              params,
-              signal: controller.signal
-            }
-          ),
-          api.get(
-            '/analytics/categories',
-            {
-              params,
-              signal: controller.signal
-            }
-          ),
-          api.get(
-            '/analytics/products',
-            {
-              params: {
-                ...params,
-                limit: 5
-              },
-              signal: controller.signal
-            }
-          ),
-          api.get(
-            '/analytics/customers',
-            {
-              params: {
-                ...params,
-                limit: 5
-              },
-              signal: controller.signal
-            }
-          )
+          api.get("/analytics/kpis", {
+            params,
+            signal: controller.signal,
+          }),
+          api.get("/analytics/regions", {
+            params,
+            signal: controller.signal,
+          }),
+          api.get("/analytics/monthly", {
+            params,
+            signal: controller.signal,
+          }),
+          api.get("/analytics/categories", {
+            params,
+            signal: controller.signal,
+          }),
+          api.get("/analytics/products", {
+            params: {
+              ...params,
+              limit: 5,
+            },
+            signal: controller.signal,
+          }),
+          api.get("/analytics/customers", {
+            params: {
+              ...params,
+              limit: 5,
+            },
+            signal: controller.signal,
+          }),
+          growthRequest,
         ]);
 
         setKpis({
-          total_revenue: Number(
-            kpiResponse.data?.total_revenue ?? 0
-          ),
-          transaction_count: Number(
-            kpiResponse.data?.transaction_count ?? 0
-          ),
+          total_revenue: Number(kpiResponse.data?.total_revenue ?? 0),
+          transaction_count: Number(kpiResponse.data?.transaction_count ?? 0),
           average_transaction_value: Number(
-            kpiResponse.data
-              ?.average_transaction_value ?? 0
-          )
+            kpiResponse.data?.average_transaction_value ?? 0,
+          ),
         });
 
         setRegionData(
-          Array.isArray(regionResponse.data)
-            ? regionResponse.data
-            : []
+          Array.isArray(regionResponse.data) ? regionResponse.data : [],
         );
 
         setMonthlyData(
-          Array.isArray(monthlyResponse.data)
-            ? monthlyResponse.data
-            : []
+          Array.isArray(monthlyResponse.data) ? monthlyResponse.data : [],
         );
 
         setCategoryData(
-          Array.isArray(categoryResponse.data)
-            ? categoryResponse.data
-            : []
+          Array.isArray(categoryResponse.data) ? categoryResponse.data : [],
         );
 
         setProductData(
-          Array.isArray(productResponse.data)
-            ? productResponse.data
-            : []
+          Array.isArray(productResponse.data) ? productResponse.data : [],
         );
 
         setCustomerData(
-          Array.isArray(customerResponse.data)
-            ? customerResponse.data
-            : []
+          Array.isArray(customerResponse.data) ? customerResponse.data : [],
         );
+
+        setGrowthData(growthResponse.data ?? null);
 
         setError(null);
       } catch (requestError) {
         if (
-          requestError.code === 'ERR_CANCELED'
-          || requestError.name === 'CanceledError'
-          || controller.signal.aborted
+          requestError.code === "ERR_CANCELED" ||
+          requestError.name === "CanceledError" ||
+          controller.signal.aborted
         ) {
           return;
         }
 
-        console.error(
-          'Dashboard verileri alınamadı:',
-          requestError
-        );
+        console.error("Dashboard verileri alınamadı:", requestError);
 
         setError(
-          requestError.response?.data?.detail
-          || 'Dashboard verileri yüklenemedi.'
+          requestError.response?.data?.detail ||
+            "Dashboard verileri yüklenemedi.",
         );
 
         setKpis(EMPTY_KPIS);
@@ -207,6 +176,7 @@ function App() {
         setCategoryData([]);
         setProductData([]);
         setCustomerData([]);
+        setGrowthData(null);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -221,65 +191,52 @@ function App() {
     };
   }, [appliedFilters]);
 
-
   useEffect(() => {
-  let isActive = true;
+    let isActive = true;
 
-  const fetchAiInsight = async () => {
-    setAiLoading(true);
+    const fetchAiInsight = async () => {
+      setAiLoading(true);
 
-    try {
-      const params = buildDateParams(appliedFilters);
+      try {
+        const params = buildDateParams(appliedFilters);
 
-      const response = await api.get('/ai/analyze', {
-        params
-      });
+        const response = await api.get("/ai/analyze", {
+          params,
+        });
 
-      if (isActive) {
-        setAiInsight(
-          response.data?.ai_insight ||
-            'Bu dönem için AI içgörüsü bulunamadı.'
-        );
+        if (isActive) {
+          setAiInsight(
+            response.data?.ai_insight ||
+              "Bu dönem için AI içgörüsü bulunamadı.",
+          );
+        }
+      } catch (requestError) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error("AI analizi alınamadı:", requestError);
+
+        setAiInsight("Yapay zeka analiz motoruna şu anda ulaşılamıyor.");
+      } finally {
+        if (isActive) {
+          setAiLoading(false);
+        }
       }
-    } catch (requestError) {
-      if (!isActive) {
-        return;
-      }
+    };
 
-      console.error(
-        'AI analizi alınamadı:',
-        requestError
-      );
+    fetchAiInsight();
 
-      setAiInsight(
-        'Yapay zeka analiz motoruna şu anda ulaşılamıyor.'
-      );
-    } finally {
-      if (isActive) {
-        setAiLoading(false);
-      }
-    }
-  };
-
-  fetchAiInsight();
-
-  return () => {
-    isActive = false;
-  };
-}, [appliedFilters]);
-
+    return () => {
+      isActive = false;
+    };
+  }, [appliedFilters]);
 
   const handleApplyFilters = (event) => {
     event.preventDefault();
 
-    if (
-      dateFrom
-      && dateTo
-      && dateFrom > dateTo
-    ) {
-      setError(
-        'Başlangıç tarihi bitiş tarihinden sonra olamaz.'
-      );
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setError("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
 
       return;
     }
@@ -288,104 +245,72 @@ function App() {
 
     setAppliedFilters({
       dateFrom,
-      dateTo
+      dateTo,
     });
   };
 
-
   const handleClearFilters = () => {
-    setDateFrom('');
-    setDateTo('');
+    setDateFrom("");
+    setDateTo("");
     setError(null);
 
     setAppliedFilters({
-      dateFrom: '',
-      dateTo: ''
+      dateFrom: "",
+      dateTo: "",
     });
   };
 
-
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    localStorage.removeItem("token");
+    navigate("/login");
   };
-
 
   const formatCurrency = (value) => {
-    return `₺${Number(
-      value ?? 0
-    ).toLocaleString('tr-TR')}`;
+    return `₺${Number(value ?? 0).toLocaleString("tr-TR")}`;
   };
-
 
   const formatCompactCurrency = (value) => {
     const numericValue = Number(value ?? 0);
 
     if (Math.abs(numericValue) >= 1000000) {
-      return `₺${(
-        numericValue / 1000000
-      ).toLocaleString('tr-TR', {
-        maximumFractionDigits: 1
+      return `₺${(numericValue / 1000000).toLocaleString("tr-TR", {
+        maximumFractionDigits: 1,
       })}M`;
     }
 
     if (Math.abs(numericValue) >= 1000) {
-      return `₺${(
-        numericValue / 1000
-      ).toLocaleString('tr-TR', {
-        maximumFractionDigits: 1
+      return `₺${(numericValue / 1000).toLocaleString("tr-TR", {
+        maximumFractionDigits: 1,
       })}K`;
     }
 
-    return `₺${numericValue.toLocaleString(
-      'tr-TR'
-    )}`;
+    return `₺${numericValue.toLocaleString("tr-TR")}`;
   };
 
-
-  const CustomTooltip = ({
-    active,
-    payload,
-    label
-  }) => {
-    if (
-      !active
-      || !payload
-      || payload.length === 0
-    ) {
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || payload.length === 0) {
       return null;
     }
 
     const tooltipLabel =
-      label
-      ?? payload[0]?.payload?.month
-      ?? payload[0]?.payload?.region
-      ?? payload[0]?.payload?.category
-      ?? '';
+      label ??
+      payload[0]?.payload?.month ??
+      payload[0]?.payload?.region ??
+      payload[0]?.payload?.category ??
+      "";
 
     return (
       <div className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white shadow-lg">
-        {tooltipLabel && (
-          <p className="font-semibold">
-            {tooltipLabel}
-          </p>
-        )}
+        {tooltipLabel && <p className="font-semibold">{tooltipLabel}</p>}
 
-        <p className="text-blue-300">
-          {formatCurrency(
-            payload[0]?.value
-          )}
-        </p>
+        <p className="text-blue-300">{formatCurrency(payload[0]?.value)}</p>
       </div>
     );
   };
 
-
   const hasActiveDateFilter = Boolean(
-    appliedFilters.dateFrom
-    || appliedFilters.dateTo
+    appliedFilters.dateFrom || appliedFilters.dateTo,
   );
-
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
@@ -393,9 +318,7 @@ function App() {
         <div className="flex h-16 items-center border-b border-slate-200 px-6">
           <div className="text-xl font-extrabold tracking-tight text-blue-700">
             Insight
-            <span className="text-slate-800">
-              Flow
-            </span>
+            <span className="text-slate-800">Flow</span>
           </div>
         </div>
 
@@ -418,9 +341,7 @@ function App() {
 
       <div className="min-w-0 min-h-0 flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
-          <h1 className="text-lg font-semibold text-slate-800">
-            Genel Bakış
-          </h1>
+          <h1 className="text-lg font-semibold text-slate-800">Genel Bakış</h1>
 
           <div className="flex items-center gap-4">
             <span className="hidden text-sm font-medium text-slate-500 md:block">
@@ -449,9 +370,7 @@ function App() {
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h2 className="font-semibold text-slate-800">
-                  Tarih Filtresi
-                </h2>
+                <h2 className="font-semibold text-slate-800">Tarih Filtresi</h2>
 
                 <p className="mt-1 text-sm text-slate-500">
                   Seçilen dönem tüm KPI, grafik ve AI analizine uygulanır.
@@ -460,36 +379,28 @@ function App() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <label className="text-sm font-medium text-slate-700">
-                  <span className="mb-1 block">
-                    Başlangıç
-                  </span>
+                  <span className="mb-1 block">Başlangıç</span>
 
                   <input
                     type="date"
                     value={dateFrom}
                     max={dateTo || undefined}
                     onChange={(event) => {
-                      setDateFrom(
-                        event.target.value
-                      );
+                      setDateFrom(event.target.value);
                     }}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </label>
 
                 <label className="text-sm font-medium text-slate-700">
-                  <span className="mb-1 block">
-                    Bitiş
-                  </span>
+                  <span className="mb-1 block">Bitiş</span>
 
                   <input
                     type="date"
                     value={dateTo}
                     min={dateFrom || undefined}
                     onChange={(event) => {
-                      setDateTo(
-                        event.target.value
-                      );
+                      setDateTo(event.target.value);
                     }}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
@@ -506,10 +417,7 @@ function App() {
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  disabled={
-                    loading
-                    || !hasActiveDateFilter
-                  }
+                  disabled={loading || !hasActiveDateFilter}
                   className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Temizle
@@ -519,14 +427,9 @@ function App() {
 
             {hasActiveDateFilter && (
               <div className="mt-4 text-xs font-medium text-blue-700">
-                Aktif dönem:{' '}
-                {appliedFilters.dateFrom
-                  || 'Başlangıç yok'}
-
-                {' → '}
-
-                {appliedFilters.dateTo
-                  || 'Bitiş yok'}
+                Aktif dönem: {appliedFilters.dateFrom || "Başlangıç yok"}
+                {" → "}
+                {appliedFilters.dateTo || "Bitiş yok"}
               </div>
             )}
           </form>
@@ -537,6 +440,141 @@ function App() {
             </div>
           )}
 
+          {/* Dönemsel büyüme karşılaştırması */}
+          <div className="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-800">
+                  Dönemsel Büyüme
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Seçilen dönem, aynı uzunluktaki önceki dönemle
+                  karşılaştırılır.
+                </p>
+              </div>
+
+              {!appliedFilters.dateFrom || !appliedFilters.dateTo ? (
+                <div className="rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  Büyüme analizi için başlangıç ve bitiş tarihi seçin.
+                </div>
+              ) : loading ? (
+                <div className="text-sm text-slate-400">
+                  Karşılaştırma yükleniyor...
+                </div>
+              ) : !growthData ? (
+                <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  Büyüme karşılaştırması oluşturulamadı.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="min-w-[210px] rounded-lg bg-slate-50 px-5 py-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Gelir Değişimi
+                    </p>
+
+                    <div className="mt-2 flex items-end justify-between gap-4">
+                      <span
+                        className={`text-2xl font-bold ${
+                          Number(growthData.revenue_change ?? 0) >= 0
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {Number(growthData.revenue_change ?? 0) >= 0 ? "+" : ""}
+
+                        {Number(growthData.revenue_change ?? 0).toLocaleString(
+                          "tr-TR",
+                          {
+                            style: "currency",
+                            currency: "TRY",
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                      </span>
+
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          Number(growthData.revenue_growth_rate ?? 0) >= 0
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {growthData.revenue_growth_rate == null
+                          ? "Baz veri yok"
+                          : `${
+                              Number(growthData.revenue_growth_rate) >= 0
+                                ? "+"
+                                : ""
+                            }${Number(
+                              growthData.revenue_growth_rate,
+                            ).toLocaleString("tr-TR", {
+                              maximumFractionDigits: 2,
+                            })}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="min-w-[210px] rounded-lg bg-slate-50 px-5 py-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      İşlem Değişimi
+                    </p>
+
+                    <div className="mt-2 flex items-end justify-between gap-4">
+                      <span
+                        className={`text-2xl font-bold ${
+                          Number(growthData.transaction_change ?? 0) >= 0
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {Number(growthData.transaction_change ?? 0) >= 0
+                          ? "+"
+                          : ""}
+
+                        {Number(
+                          growthData.transaction_change ?? 0,
+                        ).toLocaleString("tr-TR")}
+                      </span>
+
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          Number(growthData.transaction_growth_rate ?? 0) >= 0
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {growthData.transaction_growth_rate == null
+                          ? "Baz veri yok"
+                          : `${
+                              Number(growthData.transaction_growth_rate) >= 0
+                                ? "+"
+                                : ""
+                            }${Number(
+                              growthData.transaction_growth_rate,
+                            ).toLocaleString("tr-TR", {
+                              maximumFractionDigits: 2,
+                            })}%`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {growthData && (
+              <div className="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                Önceki dönem: {growthData.previous_period?.date_from}
+                {" – "}
+                {growthData.previous_period?.date_to}
+                {" · "}
+                Mevcut dönem: {growthData.current_period?.date_from}
+                {" – "}
+                {growthData.current_period?.date_to}
+              </div>
+            )}
+          </div>
+
           {/* KPI kartları */}
           <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -545,11 +583,7 @@ function App() {
               </h3>
 
               <p className="mt-3 text-3xl font-bold text-slate-800">
-                {loading
-                  ? '...'
-                  : formatCurrency(
-                    kpis.total_revenue
-                  )}
+                {loading ? "..." : formatCurrency(kpis.total_revenue)}
               </p>
             </div>
 
@@ -560,10 +594,8 @@ function App() {
 
               <p className="mt-3 text-3xl font-bold text-slate-800">
                 {loading
-                  ? '...'
-                  : Number(
-                    kpis.transaction_count ?? 0
-                  ).toLocaleString('tr-TR')}
+                  ? "..."
+                  : Number(kpis.transaction_count ?? 0).toLocaleString("tr-TR")}
               </p>
             </div>
 
@@ -574,10 +606,8 @@ function App() {
 
               <p className="mt-3 text-3xl font-bold text-slate-800">
                 {loading
-                  ? '...'
-                  : formatCurrency(
-                    kpis.average_transaction_value
-                  )}
+                  ? "..."
+                  : formatCurrency(kpis.average_transaction_value)}
               </p>
             </div>
           </div>
@@ -599,17 +629,14 @@ function App() {
                     Seçilen dönemde veri bulunamadı.
                   </div>
                 ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                  >
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={regionData}
                       margin={{
                         top: 0,
                         right: 0,
                         left: -20,
-                        bottom: 0
+                        bottom: 0,
                       }}
                     >
                       <CartesianGrid
@@ -623,8 +650,8 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#64748b',
-                          fontSize: 13
+                          fill: "#64748b",
+                          fontSize: 13,
                         }}
                       />
 
@@ -632,18 +659,16 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#94a3b8',
-                          fontSize: 12
+                          fill: "#94a3b8",
+                          fontSize: 12,
                         }}
-                        tickFormatter={
-                          formatCompactCurrency
-                        }
+                        tickFormatter={formatCompactCurrency}
                       />
 
                       <Tooltip
                         content={<CustomTooltip />}
                         cursor={{
-                          fill: '#f8fafc'
+                          fill: "#f8fafc",
                         }}
                       />
 
@@ -704,17 +729,14 @@ function App() {
                     Seçilen dönemde aylık veri bulunamadı.
                   </div>
                 ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                  >
+                  <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={monthlyData}
                       margin={{
                         top: 10,
                         right: 20,
                         left: -10,
-                        bottom: 0
+                        bottom: 0,
                       }}
                     >
                       <CartesianGrid
@@ -728,8 +750,8 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#64748b',
-                          fontSize: 12
+                          fill: "#64748b",
+                          fontSize: 12,
                         }}
                       />
 
@@ -737,17 +759,13 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#94a3b8',
-                          fontSize: 12
+                          fill: "#94a3b8",
+                          fontSize: 12,
                         }}
-                        tickFormatter={
-                          formatCompactCurrency
-                        }
+                        tickFormatter={formatCompactCurrency}
                       />
 
-                      <Tooltip
-                        content={<CustomTooltip />}
-                      />
+                      <Tooltip content={<CustomTooltip />} />
 
                       <Line
                         type="monotone"
@@ -755,12 +773,12 @@ function App() {
                         stroke="#2563eb"
                         strokeWidth={3}
                         dot={{
-                          fill: '#2563eb',
+                          fill: "#2563eb",
                           strokeWidth: 0,
-                          r: 4
+                          r: 4,
                         }}
                         activeDot={{
-                          r: 6
+                          r: 6,
                         }}
                       />
                     </LineChart>
@@ -790,10 +808,7 @@ function App() {
                     Seçilen dönemde kategori verisi bulunamadı.
                   </div>
                 ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                  >
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={categoryData}
                       layout="vertical"
@@ -801,7 +816,7 @@ function App() {
                         top: 0,
                         right: 20,
                         left: 20,
-                        bottom: 0
+                        bottom: 0,
                       }}
                     >
                       <CartesianGrid
@@ -815,12 +830,10 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#94a3b8',
-                          fontSize: 12
+                          fill: "#94a3b8",
+                          fontSize: 12,
                         }}
-                        tickFormatter={
-                          formatCompactCurrency
-                        }
+                        tickFormatter={formatCompactCurrency}
                       />
 
                       <YAxis
@@ -830,15 +843,15 @@ function App() {
                         axisLine={false}
                         tickLine={false}
                         tick={{
-                          fill: '#64748b',
-                          fontSize: 12
+                          fill: "#64748b",
+                          fontSize: 12,
                         }}
                       />
 
                       <Tooltip
                         content={<CustomTooltip />}
                         cursor={{
-                          fill: '#f8fafc'
+                          fill: "#f8fafc",
                         }}
                       />
 
@@ -874,38 +887,54 @@ function App() {
                     <tr>
                       <th className="px-6 py-3 font-medium">Ürün</th>
                       <th className="px-6 py-3 text-right font-medium">Adet</th>
-                      <th className="px-6 py-3 text-right font-medium">Gelir</th>
+                      <th className="px-6 py-3 text-right font-medium">
+                        Gelir
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
+                        <td
+                          colSpan={3}
+                          className="px-6 py-8 text-center text-slate-400"
+                        >
                           Yükleniyor...
                         </td>
                       </tr>
                     ) : productData.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
+                        <td
+                          colSpan={3}
+                          className="px-6 py-8 text-center text-slate-400"
+                        >
                           Seçilen dönemde ürün verisi bulunamadı.
                         </td>
                       </tr>
                     ) : (
                       productData.map((product, index) => (
-                        <tr key={`${product.product_name}-${index}`} className="text-slate-700">
+                        <tr
+                          key={`${product.product_name}-${index}`}
+                          className="text-slate-700"
+                        >
                           <td className="max-w-[240px] truncate px-6 py-4 font-medium text-slate-800">
                             {product.product_name}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {Number(product.quantity_sold ?? 0).toLocaleString('tr-TR')}
+                            {Number(product.quantity_sold ?? 0).toLocaleString(
+                              "tr-TR",
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right font-semibold">
-                            {Number(product.total_revenue ?? 0).toLocaleString('tr-TR', {
-                              style: 'currency',
-                              currency: 'TRY',
-                              maximumFractionDigits: 2
-                            })}
+                            {Number(product.total_revenue ?? 0).toLocaleString(
+                              "tr-TR",
+                              {
+                                style: "currency",
+                                currency: "TRY",
+                                maximumFractionDigits: 2,
+                              },
+                            )}
                           </td>
                         </tr>
                       ))
@@ -917,7 +946,9 @@ function App() {
 
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-6 py-5">
-                <h3 className="font-semibold text-slate-800">En Değerli Müşteriler</h3>
+                <h3 className="font-semibold text-slate-800">
+                  En Değerli Müşteriler
+                </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   Seçilen dönemde en yüksek gelir sağlayan ilk 5 müşteri
                 </p>
@@ -928,39 +959,57 @@ function App() {
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                       <th className="px-6 py-3 font-medium">Müşteri</th>
-                      <th className="px-6 py-3 text-right font-medium">İşlem</th>
-                      <th className="px-6 py-3 text-right font-medium">Gelir</th>
+                      <th className="px-6 py-3 text-right font-medium">
+                        İşlem
+                      </th>
+                      <th className="px-6 py-3 text-right font-medium">
+                        Gelir
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
+                        <td
+                          colSpan={3}
+                          className="px-6 py-8 text-center text-slate-400"
+                        >
                           Yükleniyor...
                         </td>
                       </tr>
                     ) : customerData.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
+                        <td
+                          colSpan={3}
+                          className="px-6 py-8 text-center text-slate-400"
+                        >
                           Seçilen dönemde müşteri verisi bulunamadı.
                         </td>
                       </tr>
                     ) : (
                       customerData.map((customer, index) => (
-                        <tr key={`${customer.customer_name}-${index}`} className="text-slate-700">
+                        <tr
+                          key={`${customer.customer_name}-${index}`}
+                          className="text-slate-700"
+                        >
                           <td className="max-w-[240px] truncate px-6 py-4 font-medium text-slate-800">
                             {customer.customer_name}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {Number(customer.transaction_count ?? 0).toLocaleString('tr-TR')}
+                            {Number(
+                              customer.transaction_count ?? 0,
+                            ).toLocaleString("tr-TR")}
                           </td>
                           <td className="px-6 py-4 text-right font-semibold">
-                            {Number(customer.total_revenue ?? 0).toLocaleString('tr-TR', {
-                              style: 'currency',
-                              currency: 'TRY',
-                              maximumFractionDigits: 2
-                            })}
+                            {Number(customer.total_revenue ?? 0).toLocaleString(
+                              "tr-TR",
+                              {
+                                style: "currency",
+                                currency: "TRY",
+                                maximumFractionDigits: 2,
+                              },
+                            )}
                           </td>
                         </tr>
                       ))
@@ -975,6 +1024,5 @@ function App() {
     </div>
   );
 }
-
 
 export default App;
