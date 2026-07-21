@@ -216,3 +216,116 @@ def test_region_analytics_enforces_tenant_scope(
             "total_revenue": 200.0,
         },
     ]
+
+def test_monthly_revenue_returns_chronological_trend(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        "/analytics/monthly",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "month": "2026-01",
+            "total_revenue": 300.0,
+            "transaction_count": 2,
+        },
+        {
+            "month": "2026-02",
+            "total_revenue": 300.0,
+            "transaction_count": 1,
+        },
+    ]
+
+def test_category_revenue_is_ordered_by_revenue(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        "/analytics/categories",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "category": "Elektronik",
+            "total_revenue": 400.0,
+            "transaction_count": 2,
+        },
+        {
+            "category": "Ofis",
+            "total_revenue": 200.0,
+            "transaction_count": 1,
+        },
+    ]
+
+def test_product_performance_respects_limit(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        "/analytics/products?limit=2",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "product_name": "Monitor",
+            "total_revenue": 300.0,
+            "quantity_sold": 1,
+        },
+        {
+            "product_name": "Masa",
+            "total_revenue": 200.0,
+            "quantity_sold": 1,
+        },
+    ]
+
+def test_customer_revenue_excludes_other_tenants(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        "/analytics/customers",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "customer_name": "Customer C",
+            "total_revenue": 300.0,
+            "transaction_count": 1,
+        },
+        {
+            "customer_name": "Customer B",
+            "total_revenue": 200.0,
+            "transaction_count": 1,
+        },
+        {
+            "customer_name": "Customer A",
+            "total_revenue": 100.0,
+            "transaction_count": 1,
+        },
+    ] 
