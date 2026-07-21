@@ -329,3 +329,86 @@ def test_customer_revenue_excludes_other_tenants(
             "transaction_count": 1,
         },
     ] 
+
+def test_growth_compares_equal_length_periods(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        (
+            "/analytics/growth"
+            "?date_from=2026-02-01"
+            "&date_to=2026-02-28"
+        ),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "current_period": {
+            "date_from": "2026-02-01",
+            "date_to": "2026-02-28",
+            "total_revenue": 300.0,
+            "transaction_count": 1,
+        },
+        "previous_period": {
+            "date_from": "2026-01-04",
+            "date_to": "2026-01-31",
+            "total_revenue": 300.0,
+            "transaction_count": 2,
+        },
+        "revenue_change": 0.0,
+        "revenue_growth_rate": 0.0,
+        "transaction_change": -1,
+        "transaction_growth_rate": -50.0,
+    }
+
+
+def test_growth_requires_both_dates(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        (
+            "/analytics/growth"
+            "?date_from=2026-02-01"
+        ),
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_growth_rate_is_null_without_previous_data(
+    client,
+    db_session,
+):
+    headers = create_analytics_scenario(
+        db_session
+    )
+
+    response = client.get(
+        (
+            "/analytics/growth"
+            "?date_from=2026-01-01"
+            "&date_to=2026-01-03"
+        ),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["current_period"]["total_revenue"] == 0.0
+    assert result["previous_period"]["total_revenue"] == 0.0
+    assert result["revenue_growth_rate"] is None
+    assert result["transaction_growth_rate"] is None

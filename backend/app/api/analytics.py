@@ -20,6 +20,7 @@ from app.schemas.analytics import (
     MonthlyRevenue,
     ProductPerformance,
     SalesByRegion,
+    GrowthComparison,
 )
 
 
@@ -442,3 +443,148 @@ def get_customer_revenue(
         }
         for result in results
     ]
+
+def calculate_growth_rate(
+    current_value: float,
+    previous_value: float,
+) -> float | None:
+    """Önceki değer sıfırsa tanımsız, değilse yüzde değişim."""
+    if previous_value == 0:
+        return None
+
+    return round(
+        (
+            (current_value - previous_value)
+            / previous_value
+        )
+        * 100,
+        2,
+    )
+
+
+def aggregate_period(
+    query: Query,
+) -> tuple[float, int]:
+    """Filtrelenmiş satış sorgusunun temel metriklerini hesaplar."""
+    total_revenue, transaction_count = (
+        query.with_entities(
+            func.coalesce(
+                func.sum(SalesRecord.total_price),
+                0.0,
+            ),
+            func.count(SalesRecord.id),
+        )
+        .one()
+    )
+
+    return (
+        round(float(total_revenue), 2),
+        int(transaction_count),
+    )
+
+
+@router.get(
+    "/growth",
+    response_model=GrowthComparison,
+)
+def get_growth_comparison(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    date_from: date | None = None,
+    date_to: date | None = None,
+):
+    if date_from is None or date_to is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Growth analizi için date_from ve "
+                "date_to zorunludur."
+            ),
+        )
+
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Başlangıç tarihi bitiş tarihinden "
+                "sonra olamaz."
+            ),
+        )
+
+    period_length = (
+        date_to - date_from
+    ).days + 1
+
+    previous_date_to = (
+        date_from - timedelta(days=1)
+    )
+    previous_date_from = (
+        previous_date_to
+        - timedelta(days=period_length - 1)
+    )
+
+    current_query = organization_sales_query(
+        db,
+        current_user,
+    )
+    current_query = apply_date_filter(
+        current_query,
+        date_from,
+        date_to,
+    )
+
+    previous_query = organization_sales_query(
+        db,
+        current_user,
+    )
+    previous_query = apply_date_filter(
+        previous_query,
+        previous_date_from,
+        previous_date_to,
+    )
+
+    (
+        current_revenue,
+        current_transactions,
+    ) = aggregate_period(current_query)
+
+    (
+        previous_revenue,
+        previous_transactions,
+    ) = aggregate_period(previous_query)
+
+    revenue_change = round(
+        current_revenue - previous_revenue,
+        2,
+    )
+    transaction_change = (
+        current_transactions
+        - previous_transactions
+    )
+
+    return {
+        "current_period": {
+            "date_from": date_from,
+            "date_to": date_to,
+            "total_revenue": current_revenue,
+            "transaction_count": current_transactions,
+        },
+        "previous_period": {
+            "date_from": previous_date_from,
+            "date_to": previous_date_to,
+            "total_revenue": previous_revenue,
+            "transaction_count": previous_transactions,
+        },
+        "revenue_change": revenue_change,
+        "revenue_growth_rate": calculate_growth_rate(
+            current_revenue,
+            previous_revenue,
+        ),
+        "transaction_change": transaction_change,
+        "transaction_growth_rate": (
+            calculate_growth_rate(
+                float(current_transactions),
+                float(previous_transactions),
+            )
+        ),
+    }
