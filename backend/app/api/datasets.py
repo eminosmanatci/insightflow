@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import logging
 from pathlib import Path
 
@@ -15,10 +13,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import RoleChecker, get_current_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.dataset import Dataset
 from app.models.user import User
 from app.schemas.dataset import DatasetResponse
+from app.services.file_storage import (
+    EmptyUploadError,
+    UploadTooLargeError,
+    delete_stored_upload,
+    finalize_upload,
+    store_temporary_upload,
+)
 from app.tasks.dataset_tasks import process_csv_task
 
 
@@ -85,42 +91,41 @@ async def upload_dataset(
             detail="Sadece CSV formatı desteklenmektedir.",
         )
 
-    # Limitten yalnızca bir bayt fazla okuyarak büyük
-    # dosyanın tamamını belleğe almaktan kaçınırız.
-    contents = await file.read(
-        MAX_UPLOAD_SIZE_BYTES + 1
-    )
+    upload_dir = Path(settings.UPLOAD_DIR)
 
-    if not contents:
+    try:
+        stored_upload = await store_temporary_upload(
+            upload_file=file,
+            upload_dir=upload_dir,
+            max_size_bytes=MAX_UPLOAD_SIZE_BYTES,
+        )
+    except EmptyUploadError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="CSV dosyası boş olamaz.",
-        )
-
-    if len(contents) > MAX_UPLOAD_SIZE_BYTES:
+        ) from exc
+    except UploadTooLargeError as exc:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="CSV dosyası en fazla 10 MB olabilir.",
-        )
-
-    # Buradaki hash güvenlik için değil, içerik
-    # tekrarını tespit etmek için kullanılır.
-    file_hash = hashlib.md5(
-        contents,
-        usedforsecurity=False,
-    ).hexdigest()
+        ) from exc
 
     existing_dataset = (
         db.query(Dataset)
         .filter(
             Dataset.organization_id
             == current_user.organization_id,
-            Dataset.file_hash == file_hash,
+            Dataset.file_hash
+            == stored_upload.content_hash,
         )
         .first()
     )
 
     if existing_dataset:
+        delete_stored_upload(
+            stored_upload.temporary_path
+        )
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -134,7 +139,7 @@ async def upload_dataset(
         name=safe_filename,
         status="processing",
         organization_id=current_user.organization_id,
-        file_hash=file_hash,
+        file_hash=stored_upload.content_hash,
     )
 
     db.add(new_dataset)
@@ -144,6 +149,9 @@ async def upload_dataset(
         db.refresh(new_dataset)
     except IntegrityError as exc:
         db.rollback()
+        delete_stored_upload(
+            stored_upload.temporary_path
+        )
 
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -153,15 +161,41 @@ async def upload_dataset(
             ),
         ) from exc
 
-    encoded_contents = base64.b64encode(
-        contents
-    ).decode("ascii")
+    try:
+        final_path = finalize_upload(
+            temporary_path=(
+                stored_upload.temporary_path
+            ),
+            upload_dir=upload_dir,
+            dataset_id=new_dataset.id,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Dataset file could not be finalized",
+            extra={
+                "dataset_id": new_dataset.id,
+            },
+        )
+
+        delete_stored_upload(
+            stored_upload.temporary_path
+        )
+        db.delete(new_dataset)
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Dosya geçici depolama alanına "
+                "kaydedilemedi."
+            ),
+        ) from exc
 
     try:
         process_csv_task.delay(
             new_dataset.id,
             current_user.organization_id,
-            encoded_contents,
+            str(final_path),
         )
     except Exception as exc:
         logger.exception(
@@ -173,8 +207,7 @@ async def upload_dataset(
             },
         )
 
-        # Kuyruğa hiç gönderilemeyen kayıt tekrar
-        # yüklemeyi engellememelidir.
+        delete_stored_upload(final_path)
         db.delete(new_dataset)
         db.commit()
 

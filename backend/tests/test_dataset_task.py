@@ -1,5 +1,3 @@
-import base64
-
 from app.models.dataset import Dataset, SalesRecord
 from app.models.organization import Organization
 from app.tasks.dataset_tasks import process_csv_task
@@ -32,13 +30,21 @@ def create_dataset(db_session, file_hash: str):
     return organization, dataset
 
 
-def encode_csv(csv_data: bytes) -> str:
-    return base64.b64encode(csv_data).decode("ascii")
+def write_csv(
+    tmp_path,
+    filename: str,
+    contents: bytes,
+):
+    file_path = tmp_path / filename
+    file_path.write_bytes(contents)
+
+    return file_path
 
 
 def test_process_csv_task_imports_valid_records(
     db_session,
     monkeypatch,
+    tmp_path,
 ):
     monkeypatch.setattr(
         "app.tasks.dataset_tasks.SessionLocal",
@@ -50,10 +56,16 @@ def test_process_csv_task_imports_valid_records(
         file_hash="valid-file-hash",
     )
 
+    file_path = write_csv(
+        tmp_path,
+        "valid.csv",
+        VALID_CSV,
+    )
+
     result = process_csv_task.run(
         dataset.id,
         organization.id,
-        encode_csv(VALID_CSV),
+        str(file_path),
     )
 
     db_session.expire_all()
@@ -84,11 +96,14 @@ def test_process_csv_task_imports_valid_records(
     assert records[0].region == "Marmara"
     assert records[0].quantity == 1
     assert records[0].total_price == 20000
+    
+    assert not file_path.exists()
 
 
 def test_process_csv_task_records_validation_failure(
     db_session,
     monkeypatch,
+    tmp_path,
 ):
     monkeypatch.setattr(
         "app.tasks.dataset_tasks.SessionLocal",
@@ -105,10 +120,16 @@ def test_process_csv_task_records_validation_failure(
         b"32/54/2026",
     )
 
+    file_path = write_csv(
+        tmp_path,
+        "invalid.csv",
+        invalid_csv,
+    )
+
     result = process_csv_task.run(
         dataset.id,
         organization.id,
-        encode_csv(invalid_csv),
+        str(file_path),
     )
 
     db_session.expire_all()
@@ -135,3 +156,5 @@ def test_process_csv_task_records_validation_failure(
     assert "tarih" in updated_dataset.error_message.lower()
     assert updated_dataset.processed_at is not None
     assert record_count == 0
+
+    assert not file_path.exists()

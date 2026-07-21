@@ -1,6 +1,6 @@
-import base64
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 from celery import shared_task
 
@@ -9,6 +9,9 @@ from app.models.dataset import Dataset, SalesRecord
 from app.pipeline.validation import (
     CSVValidationError,
     validate_sales_csv,
+)
+from app.services.file_storage import (
+    delete_stored_upload,
 )
 
 
@@ -23,7 +26,6 @@ def mark_dataset_failed(
     total_rows: int = 0,
     invalid_rows: int = 0,
 ) -> None:
-    """Dataset'i güvenli biçimde başarısız olarak işaretler."""
     dataset = (
         db.query(Dataset)
         .filter(
@@ -56,9 +58,9 @@ def mark_dataset_failed(
 def process_csv_task(
     dataset_id: int,
     organization_id: int,
-    file_contents_b64: str,
+    file_path: str,
 ):
-    """CSV dosyasını doğrular ve satış kayıtlarını oluşturur."""
+    """Storage'daki CSV'yi doğrular ve satış kayıtlarını oluşturur."""
     db = SessionLocal()
 
     try:
@@ -77,11 +79,7 @@ def process_csv_task(
                 "reason": "dataset_not_found",
             }
 
-        file_contents = base64.b64decode(
-            file_contents_b64,
-            validate=True,
-        )
-
+        file_contents = Path(file_path).read_bytes()
         dataframe = validate_sales_csv(file_contents)
 
         records = [
@@ -102,7 +100,6 @@ def process_csv_task(
 
         db.bulk_save_objects(records)
 
-        processed_at = datetime.now(timezone.utc)
         row_count = len(records)
 
         dataset.status = "completed"
@@ -111,7 +108,7 @@ def process_csv_task(
         dataset.valid_rows = row_count
         dataset.invalid_rows = 0
         dataset.error_message = None
-        dataset.processed_at = processed_at
+        dataset.processed_at = datetime.now(timezone.utc)
 
         db.commit()
 
@@ -170,3 +167,4 @@ def process_csv_task(
 
     finally:
         db.close()
+        delete_stored_upload(file_path)

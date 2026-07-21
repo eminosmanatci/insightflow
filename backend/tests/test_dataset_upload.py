@@ -1,3 +1,4 @@
+import pytest
 from io import BytesIO
 from unittest.mock import MagicMock
 
@@ -7,6 +8,19 @@ from app.models.dataset import Dataset
 VALID_CSV = b"""date,region,category,customer,product,quantity,price,total
 2026-07-01,Marmara,Elektronik,Test User,Laptop,1,20000,20000
 """
+
+
+@pytest.fixture(autouse=True)
+def isolated_upload_directory(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.api.datasets.settings.UPLOAD_DIR",
+        str(tmp_path),
+    )
+
+    return tmp_path
 
 
 def create_admin_headers(client):
@@ -166,6 +180,7 @@ def test_queue_failure_removes_pending_dataset(
     client,
     db_session,
     monkeypatch,
+    isolated_upload_directory,
 ):
     headers = create_admin_headers(client)
     task_mock = mock_csv_task(monkeypatch)
@@ -186,3 +201,7 @@ def test_queue_failure_removes_pending_dataset(
         "ulaşılamıyor. Lütfen tekrar deneyin."
     )
     assert db_session.query(Dataset).count() == 0
+    assert (
+        list(isolated_upload_directory.iterdir())
+        == []
+    )
