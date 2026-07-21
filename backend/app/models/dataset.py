@@ -6,6 +6,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -43,6 +44,25 @@ class Dataset(Base):
         Integer,
         default=0,
     )
+    total_rows = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    valid_rows = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    invalid_rows = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    error_message = Column(
+        Text,
+        nullable=True,
+    )
     organization_id = Column(
         Integer,
         ForeignKey("organizations.id"),
@@ -54,6 +74,10 @@ class Dataset(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
+    )
+    processed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     organization = relationship("Organization")
