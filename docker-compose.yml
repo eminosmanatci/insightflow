@@ -31,6 +31,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - dataset_uploads:/data/uploads
     env_file:
       - .env
     depends_on:
@@ -49,6 +50,7 @@ services:
       - --loglevel=info
     volumes:
       - ./backend:/app
+      - dataset_uploads:/data/uploads
     env_file:
       - .env
     depends_on:
@@ -69,3 +71,5 @@ services:
 
 volumes:
   postgres_data:
+  dataset_uploads:
+    
