@@ -186,7 +186,7 @@ function Datasets() {
                     <tr>
                       <th scope="col" className="px-6 py-3">Dosya Adı</th>
                       <th scope="col" className="px-6 py-3">Durum</th>
-                      <th scope="col" className="px-6 py-3">Satır Sayısı</th>
+                      <th scope="col" className="px-6 py-3">İşlem Raporu</th>
                       <th scope="col" className="px-6 py-3">Yüklenme Tarihi</th>
                       <th scope="col" className="px-6 py-3 text-right">İşlem</th>
                     </tr>
@@ -203,7 +203,17 @@ function Datasets() {
                     ) : (
                       datasets.map((ds) => (
                         <tr key={ds.id} className="bg-white border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-6 py-4 font-medium text-slate-900">{ds.name}</td>
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-slate-900">
+                              {ds.name}
+                            </div>
+                          
+                            {ds.error_message && (
+                              <div className="mt-2 max-w-md rounded-md border border-red-200 bg-red-50 p-2 text-xs leading-relaxed text-red-700">
+                                {ds.error_message}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               ds.status === 'completed' ? 'bg-green-100 text-green-800' : 
@@ -213,7 +223,48 @@ function Datasets() {
                               {ds.status === 'completed' ? 'Tamamlandı' : ds.status === 'processing' ? 'İşleniyor' : 'Hatalı'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">{ds.row_count}</td>
+                          <td className="px-6 py-4">
+                            {ds.status === 'processing' ? (
+                              <span className="text-xs text-blue-600">
+                                Doğrulanıyor...
+                              </span>
+                            ) : (
+                              <div className="space-y-1 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-14 text-slate-500">
+                                    Toplam
+                                  </span>
+                                  <span className="font-medium text-slate-800">
+                                    {ds.total_rows}
+                                  </span>
+                                </div>
+                          
+                                <div className="flex items-center gap-2">
+                                  <span className="w-14 text-slate-500">
+                                    Geçerli
+                                  </span>
+                                  <span className="font-medium text-green-700">
+                                    {ds.valid_rows}
+                                  </span>
+                                </div>
+                          
+                                <div className="flex items-center gap-2">
+                                  <span className="w-14 text-slate-500">
+                                    Hatalı
+                                  </span>
+                                  <span
+                                    className={
+                                      ds.invalid_rows > 0
+                                        ? 'font-medium text-red-700'
+                                        : 'font-medium text-slate-700'
+                                    }
+                                  >
+                                    {ds.invalid_rows}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4">{new Date(ds.created_at).toLocaleString('tr-TR')}</td>
                           <td className="px-6 py-4 text-right">
                             <button 
