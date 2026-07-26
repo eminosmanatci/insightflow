@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+
+import ChartTooltip from "./components/dashboard/ChartTooltip";
 
 import {
   Bar,
@@ -16,25 +18,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "./api";
 
-const EMPTY_KPIS = {
-  total_revenue: 0,
-  transaction_count: 0,
-  average_transaction_value: 0,
-};
-
-function buildDateParams(filters) {
-  const params = {};
-
-  if (filters.dateFrom) {
-    params.date_from = filters.dateFrom;
-  }
-
-  if (filters.dateTo) {
-    params.date_to = filters.dateTo;
-  }
-
-  return params;
-}
+import KpiCards from "./components/dashboard/KpiCards";
+import {
+  EMPTY_KPIS,
+  buildDateParams,
+  formatCompactCurrency,
+} from "./utils/dashboard";
 
 function App() {
   const [kpis, setKpis] = useState(EMPTY_KPIS);
@@ -263,49 +252,6 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
-  };
-
-  const formatCurrency = (value) => {
-    return `₺${Number(value ?? 0).toLocaleString("tr-TR")}`;
-  };
-
-  const formatCompactCurrency = (value) => {
-    const numericValue = Number(value ?? 0);
-
-    if (Math.abs(numericValue) >= 1000000) {
-      return `₺${(numericValue / 1000000).toLocaleString("tr-TR", {
-        maximumFractionDigits: 1,
-      })}M`;
-    }
-
-    if (Math.abs(numericValue) >= 1000) {
-      return `₺${(numericValue / 1000).toLocaleString("tr-TR", {
-        maximumFractionDigits: 1,
-      })}K`;
-    }
-
-    return `₺${numericValue.toLocaleString("tr-TR")}`;
-  };
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload || payload.length === 0) {
-      return null;
-    }
-
-    const tooltipLabel =
-      label ??
-      payload[0]?.payload?.month ??
-      payload[0]?.payload?.region ??
-      payload[0]?.payload?.category ??
-      "";
-
-    return (
-      <div className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white shadow-lg">
-        {tooltipLabel && <p className="font-semibold">{tooltipLabel}</p>}
-
-        <p className="text-blue-300">{formatCurrency(payload[0]?.value)}</p>
-      </div>
-    );
   };
 
   const hasActiveDateFilter = Boolean(
@@ -576,41 +522,7 @@ function App() {
           </div>
 
           {/* KPI kartları */}
-          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-slate-500">
-                Toplam Gelir
-              </h3>
-
-              <p className="mt-3 text-3xl font-bold text-slate-800">
-                {loading ? "..." : formatCurrency(kpis.total_revenue)}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-slate-500">
-                Toplam İşlem
-              </h3>
-
-              <p className="mt-3 text-3xl font-bold text-slate-800">
-                {loading
-                  ? "..."
-                  : Number(kpis.transaction_count ?? 0).toLocaleString("tr-TR")}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-slate-500">
-                Ort. İşlem Tutarı
-              </h3>
-
-              <p className="mt-3 text-3xl font-bold text-slate-800">
-                {loading
-                  ? "..."
-                  : formatCurrency(kpis.average_transaction_value)}
-              </p>
-            </div>
-          </div>
+          <KpiCards kpis={kpis} loading={loading} />
 
           {/* Bölge + AI grid */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -666,7 +578,7 @@ function App() {
                       />
 
                       <Tooltip
-                        content={<CustomTooltip />}
+                        content={<ChartTooltip />}
                         cursor={{
                           fill: "#f8fafc",
                         }}
@@ -765,7 +677,7 @@ function App() {
                         tickFormatter={formatCompactCurrency}
                       />
 
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<ChartTooltip />} />
 
                       <Line
                         type="monotone"
@@ -849,7 +761,7 @@ function App() {
                       />
 
                       <Tooltip
-                        content={<CustomTooltip />}
+                        content={<ChartTooltip />}
                         cursor={{
                           fill: "#f8fafc",
                         }}
