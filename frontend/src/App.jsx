@@ -5,6 +5,8 @@ import AiInsightPanel from "./components/dashboard/AiInsightPanel";
 import RegionChart from "./components/dashboard/RegionChart";
 import CategoryChart from "./components/dashboard/CategoryChart";
 import MonthlyRevenueChart from "./components/dashboard/MonthlyRevenueChart";
+import CustomerTable from "./components/dashboard/CustomerTable";
+import ProductTable from "./components/dashboard/ProductTable";
 
 import { Link, useNavigate } from "react-router-dom";
 
@@ -334,157 +336,11 @@ function App() {
 
             <CategoryChart data={categoryData} loading={loading} />
           </div>
-
           {/* Ürün ve müşteri performansı */}
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-6 py-5">
-                <h3 className="font-semibold text-slate-800">
-                  En Çok Gelir Getiren Ürünler
-                </h3>
+            <ProductTable data={productData} loading={loading} />
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Seçilen dönemdeki ilk 5 ürün
-                </p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="px-6 py-3 font-medium">Ürün</th>
-                      <th className="px-6 py-3 text-right font-medium">Adet</th>
-                      <th className="px-6 py-3 text-right font-medium">
-                        Gelir
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {loading ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-6 py-8 text-center text-slate-400"
-                        >
-                          Yükleniyor...
-                        </td>
-                      </tr>
-                    ) : productData.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-6 py-8 text-center text-slate-400"
-                        >
-                          Seçilen dönemde ürün verisi bulunamadı.
-                        </td>
-                      </tr>
-                    ) : (
-                      productData.map((product, index) => (
-                        <tr
-                          key={`${product.product_name}-${index}`}
-                          className="text-slate-700"
-                        >
-                          <td className="max-w-[240px] truncate px-6 py-4 font-medium text-slate-800">
-                            {product.product_name}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {Number(product.quantity_sold ?? 0).toLocaleString(
-                              "tr-TR",
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right font-semibold">
-                            {Number(product.total_revenue ?? 0).toLocaleString(
-                              "tr-TR",
-                              {
-                                style: "currency",
-                                currency: "TRY",
-                                maximumFractionDigits: 2,
-                              },
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-6 py-5">
-                <h3 className="font-semibold text-slate-800">
-                  En Değerli Müşteriler
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Seçilen dönemde en yüksek gelir sağlayan ilk 5 müşteri
-                </p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="px-6 py-3 font-medium">Müşteri</th>
-                      <th className="px-6 py-3 text-right font-medium">
-                        İşlem
-                      </th>
-                      <th className="px-6 py-3 text-right font-medium">
-                        Gelir
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {loading ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-6 py-8 text-center text-slate-400"
-                        >
-                          Yükleniyor...
-                        </td>
-                      </tr>
-                    ) : customerData.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-6 py-8 text-center text-slate-400"
-                        >
-                          Seçilen dönemde müşteri verisi bulunamadı.
-                        </td>
-                      </tr>
-                    ) : (
-                      customerData.map((customer, index) => (
-                        <tr
-                          key={`${customer.customer_name}-${index}`}
-                          className="text-slate-700"
-                        >
-                          <td className="max-w-[240px] truncate px-6 py-4 font-medium text-slate-800">
-                            {customer.customer_name}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {Number(
-                              customer.transaction_count ?? 0,
-                            ).toLocaleString("tr-TR")}
-                          </td>
-                          <td className="px-6 py-4 text-right font-semibold">
-                            {Number(customer.total_revenue ?? 0).toLocaleString(
-                              "tr-TR",
-                              {
-                                style: "currency",
-                                currency: "TRY",
-                                maximumFractionDigits: 2,
-                              },
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <CustomerTable data={customerData} loading={loading} />
           </div>
         </main>
       </div>
