@@ -1,32 +1,17 @@
 import { useEffect, useState } from "react";
-import ChartTooltip from "./components/dashboard/ChartTooltip";
 import DateFilter from "./components/dashboard/DateFilter";
 import GrowthPanel from "./components/dashboard/GrowthPanel";
 import AiInsightPanel from "./components/dashboard/AiInsightPanel";
 import RegionChart from "./components/dashboard/RegionChart";
-
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import CategoryChart from "./components/dashboard/CategoryChart";
+import MonthlyRevenueChart from "./components/dashboard/MonthlyRevenueChart";
 
 import { Link, useNavigate } from "react-router-dom";
 
 import api from "./api";
 
 import KpiCards from "./components/dashboard/KpiCards";
-import {
-  EMPTY_KPIS,
-  buildDateParams,
-  formatCompactCurrency,
-} from "./utils/dashboard";
+import { EMPTY_KPIS, buildDateParams } from "./utils/dashboard";
 
 function App() {
   const [kpis, setKpis] = useState(EMPTY_KPIS);
@@ -344,168 +329,10 @@ function App() {
           </div>
 
           {/* Aylık + kategori grid */}
-
-          {/* Aylık + kategori grid */}
-          {/* Bu bölüm main elementi kapanmadan önce yer alır. */}
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-6">
-                <h3 className="font-semibold text-slate-800">
-                  Aylık Gelir Trendi
-                </h3>
+            <MonthlyRevenueChart data={monthlyData} loading={loading} />
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Gelirin aylar içindeki değişimi
-                </p>
-              </div>
-
-              <div className="min-h-0 flex-1">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Yükleniyor...
-                  </div>
-                ) : monthlyData.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Seçilen dönemde aylık veri bulunamadı.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={monthlyData}
-                      margin={{
-                        top: 10,
-                        right: 20,
-                        left: -10,
-                        bottom: 0,
-                      }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f1f5f9"
-                      />
-
-                      <XAxis
-                        dataKey="month"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#64748b",
-                          fontSize: 12,
-                        }}
-                      />
-
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#94a3b8",
-                          fontSize: 12,
-                        }}
-                        tickFormatter={formatCompactCurrency}
-                      />
-
-                      <Tooltip content={<ChartTooltip />} />
-
-                      <Line
-                        type="monotone"
-                        dataKey="total_revenue"
-                        stroke="#2563eb"
-                        strokeWidth={3}
-                        dot={{
-                          fill: "#2563eb",
-                          strokeWidth: 0,
-                          r: 4,
-                        }}
-                        activeDot={{
-                          r: 6,
-                        }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-6">
-                <h3 className="font-semibold text-slate-800">
-                  Kategori Performansı
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Kategorilerin toplam gelire katkısı
-                </p>
-              </div>
-
-              <div className="min-h-0 flex-1">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Yükleniyor...
-                  </div>
-                ) : categoryData.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Seçilen dönemde kategori verisi bulunamadı.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={categoryData}
-                      layout="vertical"
-                      margin={{
-                        top: 0,
-                        right: 20,
-                        left: 20,
-                        bottom: 0,
-                      }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        horizontal={false}
-                        stroke="#f1f5f9"
-                      />
-
-                      <XAxis
-                        type="number"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#94a3b8",
-                          fontSize: 12,
-                        }}
-                        tickFormatter={formatCompactCurrency}
-                      />
-
-                      <YAxis
-                        type="category"
-                        dataKey="category"
-                        width={100}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#64748b",
-                          fontSize: 12,
-                        }}
-                      />
-
-                      <Tooltip
-                        content={<ChartTooltip />}
-                        cursor={{
-                          fill: "#f8fafc",
-                        }}
-                      />
-
-                      <Bar
-                        dataKey="total_revenue"
-                        fill="#6366f1"
-                        radius={[0, 4, 4, 0]}
-                        barSize={26}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
+            <CategoryChart data={categoryData} loading={loading} />
           </div>
 
           {/* Ürün ve müşteri performansı */}
