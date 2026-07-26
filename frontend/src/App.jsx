@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import ChartTooltip from "./components/dashboard/ChartTooltip";
 import DateFilter from "./components/dashboard/DateFilter";
 import GrowthPanel from "./components/dashboard/GrowthPanel";
+import AiInsightPanel from "./components/dashboard/AiInsightPanel";
+import RegionChart from "./components/dashboard/RegionChart";
 
 import {
   Bar,
@@ -336,96 +338,12 @@ function App() {
 
           {/* Bölge + AI grid */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="flex h-[420px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-              <h3 className="mb-6 font-semibold text-slate-800">
-                Bölgesel Satış Dağılımı
-              </h3>
+            <RegionChart data={regionData} loading={loading} />
 
-              <div className="min-h-0 flex-1">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Yükleniyor...
-                  </div>
-                ) : regionData.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                    Seçilen dönemde veri bulunamadı.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={regionData}
-                      margin={{
-                        top: 0,
-                        right: 0,
-                        left: -20,
-                        bottom: 0,
-                      }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f1f5f9"
-                      />
-
-                      <XAxis
-                        dataKey="region"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#64748b",
-                          fontSize: 13,
-                        }}
-                      />
-
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "#94a3b8",
-                          fontSize: 12,
-                        }}
-                        tickFormatter={formatCompactCurrency}
-                      />
-
-                      <Tooltip
-                        content={<ChartTooltip />}
-                        cursor={{
-                          fill: "#f8fafc",
-                        }}
-                      />
-
-                      <Bar
-                        dataKey="total_revenue"
-                        fill="#3b82f6"
-                        radius={[4, 4, 0, 0]}
-                        barSize={48}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            <div className="relative flex h-[420px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-600" />
-
-              <h3 className="mb-4 font-semibold text-slate-800">
-                ✨ AI İçgörüleri
-              </h3>
-
-              <div className="custom-scrollbar flex-1 overflow-y-auto whitespace-pre-wrap rounded-md border border-slate-100 bg-slate-50 p-5 text-sm leading-relaxed text-slate-700">
-                {aiLoading ? (
-                  <div className="flex animate-pulse flex-col gap-3">
-                    <div className="h-4 w-3/4 rounded bg-slate-200" />
-                    <div className="h-4 w-full rounded bg-slate-200" />
-                    <div className="h-4 w-5/6 rounded bg-slate-200" />
-                  </div>
-                ) : (
-                  aiInsight
-                )}
-              </div>
-            </div>
+            <AiInsightPanel insight={aiInsight} loading={aiLoading} />
           </div>
+
+          {/* Aylık + kategori grid */}
 
           {/* Aylık + kategori grid */}
           {/* Bu bölüm main elementi kapanmadan önce yer alır. */}
