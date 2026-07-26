@@ -1,30 +1,19 @@
-import { useEffect, useState } from "react";
-import DateFilter from "./components/dashboard/DateFilter";
-import GrowthPanel from "./components/dashboard/GrowthPanel";
-import AiInsightPanel from "./components/dashboard/AiInsightPanel";
-import RegionChart from "./components/dashboard/RegionChart";
-import CategoryChart from "./components/dashboard/CategoryChart";
-import MonthlyRevenueChart from "./components/dashboard/MonthlyRevenueChart";
-import CustomerTable from "./components/dashboard/CustomerTable";
-import ProductTable from "./components/dashboard/ProductTable";
-
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import api from "./api";
-
+import AiInsightPanel from "./components/dashboard/AiInsightPanel";
+import CategoryChart from "./components/dashboard/CategoryChart";
+import CustomerTable from "./components/dashboard/CustomerTable";
+import DateFilter from "./components/dashboard/DateFilter";
+import GrowthPanel from "./components/dashboard/GrowthPanel";
 import KpiCards from "./components/dashboard/KpiCards";
-import { EMPTY_KPIS, buildDateParams } from "./utils/dashboard";
+import MonthlyRevenueChart from "./components/dashboard/MonthlyRevenueChart";
+import ProductTable from "./components/dashboard/ProductTable";
+import RegionChart from "./components/dashboard/RegionChart";
+
+import useDashboardData from "./hooks/useDashboardData";
 
 function App() {
-  const [kpis, setKpis] = useState(EMPTY_KPIS);
-  const [regionData, setRegionData] = useState([]);
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [categoryData, setCategoryData] = useState([]);
-  const [productData, setProductData] = useState([]);
-  const [customerData, setCustomerData] = useState([]);
-  const [aiInsight, setAiInsight] = useState("");
-  const [growthData, setGrowthData] = useState(null);
-
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -33,194 +22,36 @@ function App() {
     dateTo: "",
   });
 
-  const [loading, setLoading] = useState(true);
-  const [aiLoading, setAiLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    kpis,
+    regionData,
+    monthlyData,
+    categoryData,
+    productData,
+    customerData,
+    growthData,
+    aiInsight,
+    loading,
+    aiLoading,
+    error: dashboardError,
+  } = useDashboardData(appliedFilters);
+
+  const [filterError, setFilterError] = useState(null);
+
+  const error = filterError || dashboardError;
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchDashboardData = async () => {
-      setLoading(true);
-
-      try {
-        const params = buildDateParams(appliedFilters);
-
-        const hasCompleteDateRange =
-          Boolean(appliedFilters.dateFrom) && Boolean(appliedFilters.dateTo);
-
-        const growthRequest = hasCompleteDateRange
-          ? api.get("/analytics/growth", {
-              params,
-              signal: controller.signal,
-            })
-          : Promise.resolve({
-              data: null,
-            });
-
-        const [
-          kpiResponse,
-          regionResponse,
-          monthlyResponse,
-          categoryResponse,
-          productResponse,
-          customerResponse,
-          growthResponse,
-        ] = await Promise.all([
-          api.get("/analytics/kpis", {
-            params,
-            signal: controller.signal,
-          }),
-          api.get("/analytics/regions", {
-            params,
-            signal: controller.signal,
-          }),
-          api.get("/analytics/monthly", {
-            params,
-            signal: controller.signal,
-          }),
-          api.get("/analytics/categories", {
-            params,
-            signal: controller.signal,
-          }),
-          api.get("/analytics/products", {
-            params: {
-              ...params,
-              limit: 5,
-            },
-            signal: controller.signal,
-          }),
-          api.get("/analytics/customers", {
-            params: {
-              ...params,
-              limit: 5,
-            },
-            signal: controller.signal,
-          }),
-          growthRequest,
-        ]);
-
-        setKpis({
-          total_revenue: Number(kpiResponse.data?.total_revenue ?? 0),
-          transaction_count: Number(kpiResponse.data?.transaction_count ?? 0),
-          average_transaction_value: Number(
-            kpiResponse.data?.average_transaction_value ?? 0,
-          ),
-        });
-
-        setRegionData(
-          Array.isArray(regionResponse.data) ? regionResponse.data : [],
-        );
-
-        setMonthlyData(
-          Array.isArray(monthlyResponse.data) ? monthlyResponse.data : [],
-        );
-
-        setCategoryData(
-          Array.isArray(categoryResponse.data) ? categoryResponse.data : [],
-        );
-
-        setProductData(
-          Array.isArray(productResponse.data) ? productResponse.data : [],
-        );
-
-        setCustomerData(
-          Array.isArray(customerResponse.data) ? customerResponse.data : [],
-        );
-
-        setGrowthData(growthResponse.data ?? null);
-
-        setError(null);
-      } catch (requestError) {
-        if (
-          requestError.code === "ERR_CANCELED" ||
-          requestError.name === "CanceledError" ||
-          controller.signal.aborted
-        ) {
-          return;
-        }
-
-        console.error("Dashboard verileri alınamadı:", requestError);
-
-        setError(
-          requestError.response?.data?.detail ||
-            "Dashboard verileri yüklenemedi.",
-        );
-
-        setKpis(EMPTY_KPIS);
-        setRegionData([]);
-        setMonthlyData([]);
-        setCategoryData([]);
-        setProductData([]);
-        setCustomerData([]);
-        setGrowthData(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchDashboardData();
-
-    return () => {
-      controller.abort();
-    };
-  }, [appliedFilters]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const fetchAiInsight = async () => {
-      setAiLoading(true);
-
-      try {
-        const params = buildDateParams(appliedFilters);
-
-        const response = await api.get("/ai/analyze", {
-          params,
-        });
-
-        if (isActive) {
-          setAiInsight(
-            response.data?.ai_insight ||
-              "Bu dönem için AI içgörüsü bulunamadı.",
-          );
-        }
-      } catch (requestError) {
-        if (!isActive) {
-          return;
-        }
-
-        console.error("AI analizi alınamadı:", requestError);
-
-        setAiInsight("Yapay zeka analiz motoruna şu anda ulaşılamıyor.");
-      } finally {
-        if (isActive) {
-          setAiLoading(false);
-        }
-      }
-    };
-
-    fetchAiInsight();
-
-    return () => {
-      isActive = false;
-    };
-  }, [appliedFilters]);
 
   const handleApplyFilters = (event) => {
     event.preventDefault();
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
-      setError("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
+      setFilterError("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
 
       return;
     }
 
-    setError(null);
+    setFilterError(null);
 
     setAppliedFilters({
       dateFrom,
@@ -231,7 +62,7 @@ function App() {
   const handleClearFilters = () => {
     setDateFrom("");
     setDateTo("");
-    setError(null);
+    setFilterError(null);
 
     setAppliedFilters({
       dateFrom: "",
@@ -271,7 +102,7 @@ function App() {
         </nav>
       </aside>
 
-      <div className="min-w-0 min-h-0 flex flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-8">
           <h1 className="text-lg font-semibold text-slate-800">Genel Bakış</h1>
 
@@ -336,6 +167,7 @@ function App() {
 
             <CategoryChart data={categoryData} loading={loading} />
           </div>
+
           {/* Ürün ve müşteri performansı */}
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
             <ProductTable data={productData} loading={loading} />
