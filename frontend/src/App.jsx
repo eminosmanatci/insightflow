@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ChartTooltip from "./components/dashboard/ChartTooltip";
 import DateFilter from "./components/dashboard/DateFilter";
+import GrowthPanel from "./components/dashboard/GrowthPanel";
 
 import {
   Bar,
@@ -324,139 +325,11 @@ function App() {
           )}
 
           {/* Dönemsel büyüme karşılaştırması */}
-          <div className="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Dönemsel Büyüme
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Seçilen dönem, aynı uzunluktaki önceki dönemle
-                  karşılaştırılır.
-                </p>
-              </div>
-
-              {!appliedFilters.dateFrom || !appliedFilters.dateTo ? (
-                <div className="rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                  Büyüme analizi için başlangıç ve bitiş tarihi seçin.
-                </div>
-              ) : loading ? (
-                <div className="text-sm text-slate-400">
-                  Karşılaştırma yükleniyor...
-                </div>
-              ) : !growthData ? (
-                <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  Büyüme karşılaştırması oluşturulamadı.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="min-w-[210px] rounded-lg bg-slate-50 px-5 py-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Gelir Değişimi
-                    </p>
-
-                    <div className="mt-2 flex items-end justify-between gap-4">
-                      <span
-                        className={`text-2xl font-bold ${
-                          Number(growthData.revenue_change ?? 0) >= 0
-                            ? "text-emerald-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {Number(growthData.revenue_change ?? 0) >= 0 ? "+" : ""}
-
-                        {Number(growthData.revenue_change ?? 0).toLocaleString(
-                          "tr-TR",
-                          {
-                            style: "currency",
-                            currency: "TRY",
-                            maximumFractionDigits: 2,
-                          },
-                        )}
-                      </span>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          Number(growthData.revenue_growth_rate ?? 0) >= 0
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {growthData.revenue_growth_rate == null
-                          ? "Baz veri yok"
-                          : `${
-                              Number(growthData.revenue_growth_rate) >= 0
-                                ? "+"
-                                : ""
-                            }${Number(
-                              growthData.revenue_growth_rate,
-                            ).toLocaleString("tr-TR", {
-                              maximumFractionDigits: 2,
-                            })}%`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="min-w-[210px] rounded-lg bg-slate-50 px-5 py-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      İşlem Değişimi
-                    </p>
-
-                    <div className="mt-2 flex items-end justify-between gap-4">
-                      <span
-                        className={`text-2xl font-bold ${
-                          Number(growthData.transaction_change ?? 0) >= 0
-                            ? "text-emerald-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {Number(growthData.transaction_change ?? 0) >= 0
-                          ? "+"
-                          : ""}
-
-                        {Number(
-                          growthData.transaction_change ?? 0,
-                        ).toLocaleString("tr-TR")}
-                      </span>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          Number(growthData.transaction_growth_rate ?? 0) >= 0
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {growthData.transaction_growth_rate == null
-                          ? "Baz veri yok"
-                          : `${
-                              Number(growthData.transaction_growth_rate) >= 0
-                                ? "+"
-                                : ""
-                            }${Number(
-                              growthData.transaction_growth_rate,
-                            ).toLocaleString("tr-TR", {
-                              maximumFractionDigits: 2,
-                            })}%`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {growthData && (
-              <div className="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
-                Önceki dönem: {growthData.previous_period?.date_from}
-                {" – "}
-                {growthData.previous_period?.date_to}
-                {" · "}
-                Mevcut dönem: {growthData.current_period?.date_from}
-                {" – "}
-                {growthData.current_period?.date_to}
-              </div>
-            )}
-          </div>
+          <GrowthPanel
+            appliedFilters={appliedFilters}
+            growthData={growthData}
+            loading={loading}
+          />
 
           {/* KPI kartları */}
           <KpiCards kpis={kpis} loading={loading} />
