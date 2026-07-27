@@ -158,3 +158,128 @@ def test_process_csv_task_records_validation_failure(
     assert record_count == 0
 
     assert not file_path.exists()
+
+
+def test_process_csv_task_ignores_dataset_from_another_organization(
+    db_session,
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        "app.tasks.dataset_tasks.SessionLocal",
+        TestingSessionLocal,
+    )
+
+    organization, dataset = create_dataset(
+        db_session,
+        file_hash="organization-isolation-hash",
+    )
+
+    file_path = write_csv(
+        tmp_path,
+        "organization-isolation.csv",
+        VALID_CSV,
+    )
+
+    result = process_csv_task.run(
+        dataset.id,
+        organization.id + 999,
+        str(file_path),
+    )
+
+    db_session.expire_all()
+
+    unchanged_dataset = db_session.get(
+        Dataset,
+        dataset.id,
+    )
+
+    record_count = (
+        db_session.query(SalesRecord)
+        .filter(
+            SalesRecord.dataset_id == dataset.id,
+        )
+        .count()
+    )
+
+    assert result == {
+        "status": "ignored",
+        "reason": "dataset_not_found",
+    }
+    assert unchanged_dataset.status == "processing"
+    assert unchanged_dataset.row_count == 0
+    assert unchanged_dataset.total_rows == 0
+    assert unchanged_dataset.valid_rows == 0
+    assert unchanged_dataset.invalid_rows == 0
+    assert unchanged_dataset.error_message is None
+    assert unchanged_dataset.processed_at is None
+    assert record_count == 0
+    assert not file_path.exists()
+
+
+def test_process_csv_task_records_unexpected_failure(
+    db_session,
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        "app.tasks.dataset_tasks.SessionLocal",
+        TestingSessionLocal,
+    )
+
+    organization, dataset = create_dataset(
+        db_session,
+        file_hash="unexpected-failure-hash",
+    )
+
+    file_path = write_csv(
+        tmp_path,
+        "unexpected-failure.csv",
+        VALID_CSV,
+    )
+
+    def raise_unexpected_error(_file_contents):
+        raise RuntimeError("Unexpected processing failure")
+
+    monkeypatch.setattr(
+        "app.tasks.dataset_tasks.validate_sales_csv",
+        raise_unexpected_error,
+    )
+
+    result = process_csv_task.run(
+        dataset.id,
+        organization.id,
+        str(file_path),
+    )
+
+    db_session.expire_all()
+
+    failed_dataset = db_session.get(
+        Dataset,
+        dataset.id,
+    )
+
+    record_count = (
+        db_session.query(SalesRecord)
+        .filter(
+            SalesRecord.dataset_id == dataset.id,
+        )
+        .count()
+    )
+
+    assert result["status"] == "failed"
+    assert result["dataset_id"] == dataset.id
+    assert result["errors"] == [
+        "Beklenmeyen veri işleme hatası.",
+    ]
+
+    assert failed_dataset.status == "failed"
+    assert failed_dataset.row_count == 0
+    assert failed_dataset.total_rows == 0
+    assert failed_dataset.valid_rows == 0
+    assert failed_dataset.invalid_rows == 0
+    assert "beklenmeyen" in failed_dataset.error_message.lower()
+    assert failed_dataset.processed_at is not None
+
+    assert record_count == 0
+    assert not file_path.exists()
