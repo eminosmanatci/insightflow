@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../utils/dashboard";
 import RankingTable from "./RankingTable";
+import { PackageSearch } from "lucide-react";
 
 const PRODUCT_COLUMNS = [
   {
@@ -27,6 +28,7 @@ const PRODUCT_COLUMNS = [
 function ProductTable({ data, loading }) {
   return (
     <RankingTable
+      icon={PackageSearch}
       title="En Çok Gelir Getiren Ürünler"
       description="Seçilen dönemdeki ilk 5 ürün"
       columns={PRODUCT_COLUMNS}

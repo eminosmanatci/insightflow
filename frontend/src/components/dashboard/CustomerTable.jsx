@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../utils/dashboard";
 import RankingTable from "./RankingTable";
+import { UsersRound } from "lucide-react";
 
 const CUSTOMER_COLUMNS = [
   {
@@ -27,6 +28,7 @@ const CUSTOMER_COLUMNS = [
 function CustomerTable({ data, loading }) {
   return (
     <RankingTable
+      icon={UsersRound}
       title="En Değerli Müşteriler"
       description="Seçilen dönemde en yüksek gelir sağlayan ilk 5 müşteri"
       columns={CUSTOMER_COLUMNS}
