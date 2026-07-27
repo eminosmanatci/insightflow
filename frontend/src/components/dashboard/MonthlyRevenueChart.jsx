@@ -1,3 +1,4 @@
+import { TrendingUp } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -9,86 +10,97 @@ import {
 } from "recharts";
 
 import { formatCompactCurrency } from "../../utils/dashboard";
+import ChartCard, { ChartState } from "./ChartCard";
 import ChartTooltip from "./ChartTooltip";
 
 function MonthlyRevenueChart({ data, loading }) {
   return (
-    <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6">
-        <h3 className="font-semibold text-slate-800">Aylık Gelir Trendi</h3>
+    <ChartCard
+      icon={TrendingUp}
+      title="Aylık Gelir Trendi"
+      description="Gelirin aylar içindeki değişimi"
+      badge={loading ? "Yükleniyor" : `${data.length} dönem`}
+      className="h-[380px]"
+    >
+      <ChartState
+        loading={loading}
+        empty={data.length === 0}
+        emptyMessage="Seçilen dönemde aylık veri bulunamadı."
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{
+              top: 15,
+              right: 20,
+              left: -5,
+              bottom: 0,
+            }}
+          >
+            <defs>
+              <linearGradient
+                id="monthlyLineGradient"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="0"
+              >
+                <stop offset="0%" stopColor="#2563eb" />
+                <stop offset="100%" stopColor="#8b5cf6" />
+              </linearGradient>
+            </defs>
 
-        <p className="mt-1 text-sm text-slate-500">
-          Gelirin aylar içindeki değişimi
-        </p>
-      </div>
+            <CartesianGrid
+              strokeDasharray="4 6"
+              vertical={false}
+              stroke="#e8eef6"
+            />
 
-      <div className="min-h-0 flex-1">
-        {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Yükleniyor...
-          </div>
-        ) : data.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Seçilen dönemde aylık veri bulunamadı.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data}
-              margin={{
-                top: 10,
-                right: 20,
-                left: -10,
-                bottom: 0,
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fill: "#64748b",
+                fontSize: 11,
               }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#f1f5f9"
-              />
+              dy={8}
+            />
 
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{
-                  fill: "#64748b",
-                  fontSize: 12,
-                }}
-              />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fill: "#94a3b8",
+                fontSize: 11,
+              }}
+              tickFormatter={formatCompactCurrency}
+            />
 
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{
-                  fill: "#94a3b8",
-                  fontSize: 12,
-                }}
-                tickFormatter={formatCompactCurrency}
-              />
+            <Tooltip content={<ChartTooltip />} />
 
-              <Tooltip content={<ChartTooltip />} />
-
-              <Line
-                type="monotone"
-                dataKey="total_revenue"
-                stroke="#2563eb"
-                strokeWidth={3}
-                dot={{
-                  fill: "#2563eb",
-                  strokeWidth: 0,
-                  r: 4,
-                }}
-                activeDot={{
-                  r: 6,
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
+            <Line
+              type="monotone"
+              dataKey="total_revenue"
+              stroke="url(#monthlyLineGradient)"
+              strokeWidth={3}
+              dot={{
+                fill: "#2563eb",
+                stroke: "#ffffff",
+                strokeWidth: 3,
+                r: 5,
+              }}
+              activeDot={{
+                fill: "#7c3aed",
+                stroke: "#ffffff",
+                strokeWidth: 3,
+                r: 7,
+              }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartState>
+    </ChartCard>
   );
 }
 

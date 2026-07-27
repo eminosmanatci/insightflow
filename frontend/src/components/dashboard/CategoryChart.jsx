@@ -1,3 +1,4 @@
+import { Layers3 } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -9,87 +10,93 @@ import {
 } from "recharts";
 
 import { formatCompactCurrency } from "../../utils/dashboard";
+import ChartCard, { ChartState } from "./ChartCard";
 import ChartTooltip from "./ChartTooltip";
 
 function CategoryChart({ data, loading }) {
   return (
-    <div className="flex h-[380px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6">
-        <h3 className="font-semibold text-slate-800">Kategori Performansı</h3>
+    <ChartCard
+      icon={Layers3}
+      title="Kategori Performansı"
+      description="Kategorilerin toplam gelire katkısı"
+      badge={loading ? "Yükleniyor" : `${data.length} kategori`}
+      className="h-[380px]"
+    >
+      <ChartState
+        loading={loading}
+        empty={data.length === 0}
+        emptyMessage="Seçilen dönemde kategori verisi bulunamadı."
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{
+              top: 5,
+              right: 15,
+              left: 10,
+              bottom: 0,
+            }}
+          >
+            <defs>
+              <linearGradient
+                id="categoryRevenueGradient"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="0"
+              >
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#a855f7" />
+              </linearGradient>
+            </defs>
 
-        <p className="mt-1 text-sm text-slate-500">
-          Kategorilerin toplam gelire katkısı
-        </p>
-      </div>
+            <CartesianGrid
+              strokeDasharray="4 6"
+              horizontal={false}
+              stroke="#e8eef6"
+            />
 
-      <div className="min-h-0 flex-1">
-        {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Yükleniyor...
-          </div>
-        ) : data.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Seçilen dönemde kategori verisi bulunamadı.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{
-                top: 0,
-                right: 20,
-                left: 20,
-                bottom: 0,
+            <XAxis
+              type="number"
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fill: "#94a3b8",
+                fontSize: 11,
               }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                horizontal={false}
-                stroke="#f1f5f9"
-              />
+              tickFormatter={formatCompactCurrency}
+            />
 
-              <XAxis
-                type="number"
-                axisLine={false}
-                tickLine={false}
-                tick={{
-                  fill: "#94a3b8",
-                  fontSize: 12,
-                }}
-                tickFormatter={formatCompactCurrency}
-              />
+            <YAxis
+              type="category"
+              dataKey="category"
+              axisLine={false}
+              tickLine={false}
+              width={95}
+              tick={{
+                fill: "#64748b",
+                fontSize: 11,
+              }}
+            />
 
-              <YAxis
-                type="category"
-                dataKey="category"
-                axisLine={false}
-                tickLine={false}
-                width={90}
-                tick={{
-                  fill: "#64748b",
-                  fontSize: 12,
-                }}
-              />
+            <Tooltip
+              content={<ChartTooltip />}
+              cursor={{
+                fill: "#f8fafc",
+              }}
+            />
 
-              <Tooltip
-                content={<ChartTooltip />}
-                cursor={{
-                  fill: "#f8fafc",
-                }}
-              />
-
-              <Bar
-                dataKey="total_revenue"
-                fill="#6366f1"
-                radius={[0, 4, 4, 0]}
-                barSize={28}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
+            <Bar
+              dataKey="total_revenue"
+              fill="url(#categoryRevenueGradient)"
+              radius={[0, 8, 8, 0]}
+              maxBarSize={30}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartState>
+    </ChartCard>
   );
 }
 

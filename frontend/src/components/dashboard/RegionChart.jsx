@@ -1,3 +1,4 @@
+import { MapPinned } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -9,79 +10,90 @@ import {
 } from "recharts";
 
 import { formatCompactCurrency } from "../../utils/dashboard";
+import ChartCard, { ChartState } from "./ChartCard";
 import ChartTooltip from "./ChartTooltip";
 
 function RegionChart({ data, loading }) {
   return (
-    <div className="flex h-[420px] flex-col rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-      <h3 className="mb-6 font-semibold text-slate-800">
-        Bölgesel Satış Dağılımı
-      </h3>
+    <ChartCard
+      icon={MapPinned}
+      title="Bölgesel Satış Dağılımı"
+      description="Gelirin coğrafi bölgelere göre dağılımı"
+      badge={loading ? "Yükleniyor" : `${data.length} bölge`}
+      className="h-[420px] lg:col-span-2"
+    >
+      <ChartState
+        loading={loading}
+        empty={data.length === 0}
+        emptyMessage="Seçilen dönemde bölgesel veri bulunamadı."
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{
+              top: 10,
+              right: 10,
+              left: -10,
+              bottom: 0,
+            }}
+          >
+            <defs>
+              <linearGradient
+                id="regionRevenueGradient"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor="#2563eb" />
+                <stop offset="100%" stopColor="#60a5fa" />
+              </linearGradient>
+            </defs>
 
-      <div className="min-h-0 flex-1">
-        {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Yükleniyor...
-          </div>
-        ) : data.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-            Seçilen dönemde veri bulunamadı.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{
-                top: 0,
-                right: 0,
-                left: -20,
-                bottom: 0,
+            <CartesianGrid
+              strokeDasharray="4 6"
+              vertical={false}
+              stroke="#e8eef6"
+            />
+
+            <XAxis
+              dataKey="region"
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fill: "#64748b",
+                fontSize: 12,
               }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#f1f5f9"
-              />
+              dy={8}
+            />
 
-              <XAxis
-                dataKey="region"
-                axisLine={false}
-                tickLine={false}
-                tick={{
-                  fill: "#64748b",
-                  fontSize: 13,
-                }}
-              />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fill: "#94a3b8",
+                fontSize: 11,
+              }}
+              tickFormatter={formatCompactCurrency}
+            />
 
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{
-                  fill: "#94a3b8",
-                  fontSize: 12,
-                }}
-                tickFormatter={formatCompactCurrency}
-              />
+            <Tooltip
+              content={<ChartTooltip />}
+              cursor={{
+                fill: "#f8fafc",
+              }}
+            />
 
-              <Tooltip
-                content={<ChartTooltip />}
-                cursor={{
-                  fill: "#f8fafc",
-                }}
-              />
-
-              <Bar
-                dataKey="total_revenue"
-                fill="#3b82f6"
-                radius={[4, 4, 0, 0]}
-                barSize={48}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
+            <Bar
+              dataKey="total_revenue"
+              fill="url(#regionRevenueGradient)"
+              radius={[8, 8, 3, 3]}
+              maxBarSize={56}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartState>
+    </ChartCard>
   );
 }
 
