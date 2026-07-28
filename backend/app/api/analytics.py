@@ -26,7 +26,9 @@ from app.services.analytics import (
     aggregate_period,
     apply_date_filter,
     calculate_growth_rate,
+    get_category_metrics,
     get_kpi_metrics,
+    get_monthly_metrics,
     get_region_metrics,
     organization_sales_query,
 )
@@ -84,63 +86,12 @@ def get_monthly_revenue(
     date_from: date | None = None,
     date_to: date | None = None,
 ):
-    query = organization_sales_query(
-        db,
-        current_user,
+    return get_monthly_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    query = apply_date_filter(
-        query,
-        date_from,
-        date_to,
-    )
-
-    year_expression = func.extract(
-        "year",
-        SalesRecord.transaction_date,
-    )
-    month_expression = func.extract(
-        "month",
-        SalesRecord.transaction_date,
-    )
-
-    results = (
-        query.with_entities(
-            year_expression.label("year"),
-            month_expression.label("month_number"),
-            func.sum(
-                SalesRecord.total_price
-            ).label("total_revenue"),
-            func.count(
-                SalesRecord.id
-            ).label("transaction_count"),
-        )
-        .group_by(
-            year_expression,
-            month_expression,
-        )
-        .order_by(
-            year_expression,
-            month_expression,
-        )
-        .all()
-    )
-
-    return [
-        {
-            "month": (
-                f"{int(result.year):04d}-"
-                f"{int(result.month_number):02d}"
-            ),
-            "total_revenue": round(
-                float(result.total_revenue),
-                2,
-            ),
-            "transaction_count": int(
-                result.transaction_count
-            ),
-        }
-        for result in results
-    ]
 
 
 @router.get(
@@ -153,49 +104,12 @@ def get_category_revenue(
     date_from: date | None = None,
     date_to: date | None = None,
 ):
-    query = organization_sales_query(
-        db,
-        current_user,
+    return get_category_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    query = apply_date_filter(
-        query,
-        date_from,
-        date_to,
-    )
-
-    results = (
-        query.with_entities(
-            SalesRecord.category,
-            func.sum(
-                SalesRecord.total_price
-            ).label("total_revenue"),
-            func.count(
-                SalesRecord.id
-            ).label("transaction_count"),
-        )
-        .group_by(SalesRecord.category)
-        .order_by(
-            func.sum(
-                SalesRecord.total_price
-            ).desc(),
-            SalesRecord.category.asc(),
-        )
-        .all()
-    )
-
-    return [
-        {
-            "category": result.category,
-            "total_revenue": round(
-                float(result.total_revenue),
-                2,
-            ),
-            "transaction_count": int(
-                result.transaction_count
-            ),
-        }
-        for result in results
-    ]
 
 
 @router.get(

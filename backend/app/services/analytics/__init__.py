@@ -10,13 +10,19 @@ from app.services.analytics.queries import (
     apply_date_filter,
     organization_sales_query,
 )
+from app.services.analytics.trends import (
+    get_category_metrics,
+    get_monthly_metrics,
+)
 
 
 __all__ = [
     "aggregate_period",
     "apply_date_filter",
     "calculate_growth_rate",
+    "get_category_metrics",
     "get_kpi_metrics",
+    "get_monthly_metrics",
     "get_region_metrics",
     "organization_sales_query",
 ]
