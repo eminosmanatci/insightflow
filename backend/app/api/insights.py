@@ -3,10 +3,11 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.analytics import (
-    get_kpis,
-    get_sales_by_region,
+from app.services.analytics import (
+    get_kpi_metrics,
+    get_region_metrics,
 )
+
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
@@ -29,17 +30,17 @@ def analyze_business_data(
     date_to: date | None = None,
 ):
     """Filtrelenmiş analytics verilerinden AI özeti üretir."""
-    kpi_data = get_kpis(
-        db,
-        current_user,
-        date_from,
-        date_to,
+    kpi_data = get_kpi_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    region_data = get_sales_by_region(
-        db,
-        current_user,
-        date_from,
-        date_to,
+    region_data = get_region_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     if not isinstance(kpi_data, dict):
