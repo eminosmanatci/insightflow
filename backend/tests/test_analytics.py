@@ -449,3 +449,20 @@ def test_ai_insight_uses_same_date_filter(
             "total_revenue": 300.0,
         }
     ]
+
+def test_ai_insight_declares_typed_response_contract(
+    client,
+):
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+
+    response_schema = (
+        response.json()["paths"]["/ai/analyze"]["get"]
+        ["responses"]["200"]["content"]
+        ["application/json"]["schema"]
+    )
+
+    assert response_schema == {
+        "$ref": "#/components/schemas/InsightResponse",
+    }

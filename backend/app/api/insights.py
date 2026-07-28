@@ -1,5 +1,5 @@
 from datetime import date
-
+from app.schemas.analytics import InsightResponse
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,10 @@ router = APIRouter(
 )
 
 
-@router.get("/analyze")
+@router.get(
+    "/analyze",
+    response_model=InsightResponse,
+)
 def analyze_business_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
