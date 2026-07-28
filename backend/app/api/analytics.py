@@ -26,6 +26,8 @@ from app.services.analytics import (
     aggregate_period,
     apply_date_filter,
     calculate_growth_rate,
+    get_kpi_metrics,
+    get_region_metrics,
     organization_sales_query,
 )
 
@@ -46,47 +48,12 @@ def get_kpis(
     date_from: date | None = None,
     date_to: date | None = None,
 ):
-    query = organization_sales_query(
-        db,
-        current_user,
+    return get_kpi_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    query = apply_date_filter(
-        query,
-        date_from,
-        date_to,
-    )
-
-    total_revenue, transaction_count = (
-        query.with_entities(
-            func.coalesce(
-                func.sum(SalesRecord.total_price),
-                0.0,
-            ),
-            func.count(SalesRecord.id),
-        )
-        .one()
-    )
-
-    total_revenue = float(total_revenue)
-    transaction_count = int(transaction_count)
-
-    average_transaction_value = (
-        total_revenue / transaction_count
-        if transaction_count > 0
-        else 0.0
-    )
-
-    return {
-        "total_revenue": round(
-            total_revenue,
-            2,
-        ),
-        "transaction_count": transaction_count,
-        "average_transaction_value": round(
-            average_transaction_value,
-            2,
-        ),
-    }
 
 
 @router.get(
@@ -99,42 +66,12 @@ def get_sales_by_region(
     date_from: date | None = None,
     date_to: date | None = None,
 ):
-    query = organization_sales_query(
-        db,
-        current_user,
+    return get_region_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    query = apply_date_filter(
-        query,
-        date_from,
-        date_to,
-    )
-
-    results = (
-        query.with_entities(
-            SalesRecord.region,
-            func.sum(
-                SalesRecord.total_price
-            ).label("total_revenue"),
-        )
-        .group_by(SalesRecord.region)
-        .order_by(
-            func.sum(
-                SalesRecord.total_price
-            ).desc()
-        )
-        .all()
-    )
-
-    return [
-        {
-            "region": result.region,
-            "total_revenue": round(
-                float(result.total_revenue),
-                2,
-            ),
-        }
-        for result in results
-    ]
 
 
 @router.get(
