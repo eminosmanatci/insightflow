@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 
 from fastapi import (
     APIRouter,
@@ -6,7 +6,6 @@ from fastapi import (
     HTTPException,
     status,
 )
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -22,16 +21,13 @@ from app.schemas.analytics import (
     GrowthComparison,
 )
 from app.services.analytics import (
-    aggregate_period,
-    apply_date_filter,
-    calculate_growth_rate,
     get_category_metrics,
     get_customer_metrics,
+    get_growth_metrics,
     get_kpi_metrics,
     get_monthly_metrics,
     get_product_metrics,
     get_region_metrics,
-    organization_sales_query,
 )
 
 
@@ -193,80 +189,9 @@ def get_growth_comparison(
             ),
         )
 
-    period_length = (
-        date_to - date_from
-    ).days + 1
-
-    previous_date_to = (
-        date_from - timedelta(days=1)
+    return get_growth_metrics(
+        db=db,
+        current_user=current_user,
+        date_from=date_from,
+        date_to=date_to,
     )
-    previous_date_from = (
-        previous_date_to
-        - timedelta(days=period_length - 1)
-    )
-
-    current_query = organization_sales_query(
-        db,
-        current_user,
-    )
-    current_query = apply_date_filter(
-        current_query,
-        date_from,
-        date_to,
-    )
-
-    previous_query = organization_sales_query(
-        db,
-        current_user,
-    )
-    previous_query = apply_date_filter(
-        previous_query,
-        previous_date_from,
-        previous_date_to,
-    )
-
-    (
-        current_revenue,
-        current_transactions,
-    ) = aggregate_period(current_query)
-
-    (
-        previous_revenue,
-        previous_transactions,
-    ) = aggregate_period(previous_query)
-
-    revenue_change = round(
-        current_revenue - previous_revenue,
-        2,
-    )
-    transaction_change = (
-        current_transactions
-        - previous_transactions
-    )
-
-    return {
-        "current_period": {
-            "date_from": date_from,
-            "date_to": date_to,
-            "total_revenue": current_revenue,
-            "transaction_count": current_transactions,
-        },
-        "previous_period": {
-            "date_from": previous_date_from,
-            "date_to": previous_date_to,
-            "total_revenue": previous_revenue,
-            "transaction_count": previous_transactions,
-        },
-        "revenue_change": revenue_change,
-        "revenue_growth_rate": calculate_growth_rate(
-            current_revenue,
-            previous_revenue,
-        ),
-        "transaction_change": transaction_change,
-        "transaction_growth_rate": (
-            calculate_growth_rate(
-                float(current_transactions),
-                float(previous_transactions),
-            )
-        ),
-    }

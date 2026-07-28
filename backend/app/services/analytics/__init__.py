@@ -20,6 +20,10 @@ from app.services.analytics.rankings import (
     get_product_metrics,
 )
 
+from app.services.analytics.growth import (
+    get_growth_metrics,
+)
+
 __all__ = [
     "aggregate_period",
     "apply_date_filter",
@@ -31,4 +35,5 @@ __all__ = [
     "organization_sales_query",
     "get_customer_metrics",
     "get_product_metrics",
+    "get_growth_metrics",
 ]
