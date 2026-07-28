@@ -15,6 +15,10 @@ from app.services.analytics.trends import (
     get_monthly_metrics,
 )
 
+from app.services.analytics.rankings import (
+    get_customer_metrics,
+    get_product_metrics,
+)
 
 __all__ = [
     "aggregate_period",
@@ -25,4 +29,6 @@ __all__ = [
     "get_monthly_metrics",
     "get_region_metrics",
     "organization_sales_query",
+    "get_customer_metrics",
+    "get_product_metrics",
 ]
