@@ -1,5 +1,5 @@
 # 🚀 InsightFlow - Enterprise Analytics Platform
-
+[![InsightFlow CI](https://github.com/eminosmanatci/insightflow/actions/workflows/ci.yml/badge.svg)](https://github.com/eminosmanatci/insightflow/actions/workflows/ci.yml)
 InsightFlow is a modern, end-to-end Enterprise Analytics Platform designed to ingest, process, and analyze scattered business data. It transforms raw CSV data into actionable business intelligence using a robust ETL pipeline, SQL-based analytics, and an integrated AI Insight Engine (powered by Llama-3.1).
 
 ![InsightFlow Dashboard](https://via.placeholder.com/800x400.png?text=InsightFlow+Dashboard+Screenshot)
