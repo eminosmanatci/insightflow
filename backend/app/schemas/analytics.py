@@ -2,6 +2,8 @@ from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel
+
+
 class KPISummary(BaseModel):
     total_revenue: float
     transaction_count: int
@@ -36,9 +38,6 @@ class CustomerRevenue(BaseModel):
     total_revenue: float
     transaction_count: int
 
-from datetime import date
-from typing import Optional
-
 
 class PeriodMetrics(BaseModel):
     date_from: date
@@ -54,3 +53,20 @@ class GrowthComparison(BaseModel):
     revenue_growth_rate: Optional[float]
     transaction_change: int
     transaction_growth_rate: Optional[float]
+
+
+class InsightFilters(BaseModel):
+    date_from: Optional[date]
+    date_to: Optional[date]
+
+
+class InsightDataSnapshot(BaseModel):
+    kpis: KPISummary
+    regions: list[SalesByRegion]
+
+
+class InsightResponse(BaseModel):
+    organization: str
+    filters: InsightFilters
+    data_snapshot: InsightDataSnapshot
+    ai_insight: str
